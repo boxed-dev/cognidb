@@ -1,4 +1,4 @@
-```markdown
+
 # CogniDB 
 
 A utility that provides seamless database access to your agents with a single line of code.
@@ -94,4 +94,3 @@ except Exception as e:
 ## 📝 License
 
 MIT License © 2024
-```
