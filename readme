@@ -1,3 +1,4 @@
+```markdown
 # CogniDB 
 
 A utility that provides seamless database access to your agents with a single line of code.
@@ -8,7 +9,7 @@ A utility that provides seamless database access to your agents with a single li
 pip install cognidb
 ```
 
-##  Configuration
+## ⚙️ Configuration
 
 ### Using Environment Variables (.env)
 
@@ -40,7 +41,7 @@ db = CogniDB(
 )
 ```
 
-## Quick Start
+## 🚀 Quick Start
 
 ```python
 from cognidb import CogniDB
@@ -81,14 +82,16 @@ except ValueError as e:
 except Exception as e:
     print(f"Query error: {e}")
 ```
+
 ## 📦 Dependencies
 
-- openai
-- psycopg2
-- mysql-connector-python
-- sqlparse
-- psycopg2-binary
+- `openai`
+- `psycopg2`
+- `mysql-connector-python`
+- `sqlparse`
+- `psycopg2-binary`
 
 ## 📝 License
 
 MIT License © 2024
+```
