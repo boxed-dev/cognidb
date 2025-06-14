@@ -1,96 +1,160 @@
+# <i><b>`CogniDB`</b></i>
 
-# CogniDB 
+A natural language to SQL interface that empowers non-technical users to query databases using plain English. <br>
 
-A utility that provides seamless database access to your agents with a single line of code.
+---
 
-## 📦 Installation
+<samp>
 
-```bash
-pip install cognidb
-```
+> <b>[!IMPORTANT]</b><br>
+> <b>Handle Your Data Responsibly:</b> CogniDB interacts with your databases. <br>
+> Ensure your database credentials and connection details are kept secure. <br>
+> The developers are not responsible for any data mismanagement if you modify, self-host, or misuse the tool.
 
-## ⚙️ Configuration
+---
 
-### Using Environment Variables (.env)
+## ✨ <b>Features</b>
 
-```bash
-# Database Settings
-HOST=localhost
-PORT=3306
-DATABASE=your_database
-USER=your_username
-PASSWORD=your_password
+- <b>`Natural Language Querying`</b>: Ask questions in plain English (e.g., "What were the top-selling products last month?").
+- <b>`SQL Generation`</b>: Automatically parses questions, understands database schema, and generates safe SQL queries.
+- <b>`Direct Database Interaction`</b>: Connects to your database, executes the generated SQL, and returns results.
+- <b>`Single Method Call`</b>: Access all functionality through a simple `db.query('Your question')` method.
+- <b>`Multi-Database Support`</b>: Works with MySQL, PostgreSQL, MongoDB, and AWS RDS.
+- <b>`Speed and Efficiency`</b>: Designed to provide fast responses and eliminate data access bottlenecks.
+- <b>`Abstraction Layer`</b>: Offers a single, unified interface for interacting with various database systems.
 
-# OpenAI API Key
-OPENAI_API_KEY=your-openai-api-key
-```
+---
 
-### Using Python Code
+## 🚀 <b>Setup</b>
 
-```python
-from cognidb import CogniDB
+<b>Important:</b> CogniDB requires connection details for your target database(s). Ensure you have the necessary credentials (host, port, database name, user, password) ready.
 
-db = CogniDB(
-    db_type="mysql",  # or "postgresql"
-    host="localhost",
-    port=3306,
-    dbname="your_database",
-    user="your_username",
-    password="your_password",
-    api_key="your-openai-api-key"  # Optional if set in .env
-)
-```
+### Prerequisites
+- `Python` (3.7+)
+- `pip` (Python package installer)
 
-## 🚀 Quick Start
+### Installation
 
-```python
-from cognidb import CogniDB
+1. Install CogniDB using pip:<br>
+   ```bash
+   pip install cognidb
+   ```
+2. Import CogniDB in your Python script and configure your database connection: <br>
+   ```python
+   from cognidb import CogniDB
 
-# Initialize using environment variables
-db = CogniDB(db_type="mysql")
+   db = CogniDB(
+       db_type="postgresql",  # Or "mysql", "mongodb", "aws-rds"
+       host="localhost",
+       port=5432,
+       database="mydb",
+       user="admin",
+       password="secret"
+   )
+   ```
 
-# Simple query
-result = db.query("Show me all customers")
+---
 
-# Query with potential clarification
-result = db.query("Show transactions from last month")
-```
+## 🛠️ <b>Usage</b>
 
-- 📊 MySQL and PostgreSQL support
+### Querying Your Database
 
-## 🔍 Example Queries
-
-```python
-# Basic queries
-customers = db.query("List all premium customers")
-
-# Aggregations
-summary = db.query("Total sales by product category")
-
-# Complex queries
-analysis = db.query("Find customers who spent more than average")
-```
-
-## ⚠️ Error Handling
+Once CogniDB is configured, you can query your database using natural language:
 
 ```python
-try:
-    db = CogniDB(db_type="mysql")
-    result = db.query("Show customer accounts")
-except ValueError as e:
-    print(f"Configuration error: {e}")
-except Exception as e:
-    print(f"Query error: {e}")
+result = db.query("Show me the monthly sales trend for 2023")
+print(result)
+
+# Example: What were the top-selling products last month?
+# result = db.query("What were the top-selling products last month?")
+# print(result)
 ```
 
-## 📦 Dependencies
+### Supported Databases
+CogniDB's architecture is modular, supporting the following databases through dedicated drivers:
+- **MySQL**
+- **PostgreSQL**
+- **MongoDB**
+- **AWS-managed services** (RDS)
 
-- `openai`
-- `psycopg2`
-- `mysql-connector-python`
-- `sqlparse`
-- `psycopg2-binary`
+All drivers inherit from a `base_db` for common functionality, ensuring consistency and ease of extension.
 
-## 📝 License
+---
 
-MIT License © 2024
+## 🏗️ <b>Technical Architecture</b>
+
+CogniDB operates through a sophisticated yet streamlined process:
+
+1.  **`Driver Abstraction`**:
+    *   Based on the `db_type` provided during initialization, CogniDB dynamically loads the appropriate DB-API 2.0 compliant driver:
+        *   MySQL → `mysql-connector-python`
+        *   PostgreSQL → `psycopg2`
+        *   MongoDB → `pymongo`
+        *   AWS → Utilizes host-auth chaining for AWS-managed database services.
+2.  **`Schema Introspection`**:
+    *   Upon establishing a connection, CogniDB fetches table names, column names, and their data types.
+    *   This schema information is embedded into the prompt sent to the Large Language Model (LLM) to ground its SQL generation process, ensuring contextually accurate queries.
+3.  **`SQL Execution`**:
+    *   The SQL query generated by the LLM is:
+        *   **Sanitized**: Ensures only `SELECT` statements are executed, preventing accidental data modification or deletion.
+        *   **Logged**: For auditing and debugging purposes.
+        *   **Executed**: Via a database cursor.
+    *   Results are fetched and returned as Python dictionaries or Pandas DataFrames for easy use.
+4.  **`Connection Lifecycle Management`**:
+    *   Database cursors and connections are explicitly closed after each query to manage resources efficiently.
+    *   For high-frequency applications, CogniDB supports connection pooling using `SimpleConnectionPool` from `psycopg2` (for PostgreSQL) or `QueuePool` from `SQLAlchemy`.
+
+### Flowchart
+Visual representation of the CogniDB workflow:
+[View Flowchart on Excalidraw](https://excalidraw.com/#json=UO9xTkXzDYXqrDvTipeB0,dgOcv-T9LnWEWlirpx1u6A)
+
+---
+
+## 🧠 <b>Problems Faced and Solutions</b>
+
+Developing a robust natural language to SQL interface comes with its challenges. Here's how CogniDB addresses them:
+
+1.  **`LLM Misinterpretation`**:
+    *   **Problem**: The LLM occasionally generated incorrect joins or misunderstood column aliases.
+    *   **Solution**: Enhanced the LLM prompt with detailed schema context and incorporated few-shot examples to guide the model towards more accurate SQL generation.
+2.  **`Unsafe SQL Generation`**:
+    *   **Problem**: The LLM might generate potentially harmful SQL commands like `DELETE` or `DROP`.
+    *   **Solution**: Implemented a post-generation sanitizer that strictly ensures only `SELECT` statements are executed, safeguarding data integrity.
+3.  **`Query Timeouts`**:
+    *   **Problem**: Some natural language queries resulted in complex SQL that ran for extended periods on large datasets.
+    *   **Solution**: Integrated configurable timeout settings for queries. Future plans include adding cost-based optimization suggestions to help users formulate more efficient queries.
+4.  **`Schema Drift`**:
+    *   **Problem**: Changes in the database schema (e.g., new tables, altered columns) could break the LLM's alignment and lead to incorrect queries.
+    *   **Solution**: Added a mechanism for periodic schema refresh. Implemented an error-based fallback recovery system to handle discrepancies gracefully.
+5.  **`Ambiguity in User Language`**:
+    *   **Problem**: Users often ask questions that can be interpreted in multiple ways.
+    *   **Solution**: Introduced clarification prompts that engage the user when the LLM's confidence in interpreting a query is low. Implemented reranking of fuzzy matches to offer the most probable interpretations.
+
+---
+
+## 📜 <b>Design Principles</b>
+
+CogniDB is built upon the following core principles:
+
+-   **`Abstraction-First`**: Provide a single, consistent interface for interacting with all supported databases.
+-   **`LLM-Safe`**: Prioritize data safety through rigorous sanitization and read-only enforcement for LLM-generated queries.
+-   **`Modular Architecture`**: Design for extensibility, allowing new database drivers to be easily added by extending the `base_db.py` module.
+-   **`Scalable`**: Engineered to be embedded within various applications, such as dashboards or chat interfaces, handling diverse workloads.
+
+---
+
+## 💬 <b>Feedback & Contributions</b>
+
+We'd love to hear your thoughts! If you encounter any issues, have suggestions for improvement, or want to contribute:
+- Please open an issue on the GitHub repository.
+- For contributions, feel free to fork the repository and submit a pull request.
+
+Your feedback and contributions are invaluable! 💌
+
+---
+
+## License
+
+This project is licensed under the MIT License - see the `LICENSE` file for details.
+
+</samp>
