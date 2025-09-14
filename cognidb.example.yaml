@@ -1,0 +1,120 @@
+# CogniDB Configuration Example
+# Copy this to cognidb.yaml and update with your settings
+
+# Application settings
+app_name: CogniDB
+environment: production
+debug: false
+log_level: INFO
+
+# Database configuration
+database:
+  type: postgresql  # Options: mysql, postgresql, mongodb, dynamodb, sqlite
+  host: localhost
+  port: 5432
+  database: your_database
+  username: your_username
+  password: ${DB_PASSWORD}  # Use environment variable
+  
+  # Connection pool settings
+  pool_size: 5
+  max_overflow: 10
+  pool_timeout: 30
+  pool_recycle: 3600
+  
+  # SSL/TLS settings
+  ssl_enabled: true
+  ssl_ca_cert: null
+  ssl_client_cert: null
+  ssl_client_key: null
+  
+  # Query settings
+  query_timeout: 30  # seconds
+  max_result_size: 10000  # rows
+
+# LLM configuration
+llm:
+  provider: openai  # Options: openai, anthropic, azure_openai, huggingface, local
+  api_key: ${LLM_API_KEY}  # Use environment variable
+  
+  # Model settings
+  model_name: gpt-4
+  temperature: 0.1
+  max_tokens: 1000
+  timeout: 30
+  
+  # Cost control
+  max_tokens_per_query: 2000
+  max_queries_per_minute: 60
+  max_cost_per_day: 100.0
+  
+  # Few-shot examples for better SQL generation
+  few_shot_examples:
+    - query: "Show me all users who registered last month"
+      sql: "SELECT * FROM users WHERE created_at >= DATE_TRUNC('month', CURRENT_DATE - INTERVAL '1 month') AND created_at < DATE_TRUNC('month', CURRENT_DATE)"
+    
+    - query: "What's the total revenue by product category?"
+      sql: "SELECT p.category, SUM(o.amount) as total_revenue FROM orders o JOIN products p ON o.product_id = p.id GROUP BY p.category ORDER BY total_revenue DESC"
+    
+    - query: "Find customers who haven't made a purchase in the last 90 days"
+      sql: "SELECT c.* FROM customers c WHERE c.id NOT IN (SELECT DISTINCT customer_id FROM orders WHERE order_date > CURRENT_DATE - INTERVAL '90 days')"
+
+# Cache configuration
+cache:
+  provider: in_memory  # Options: in_memory, redis, memcached, disk
+  
+  # TTL settings (in seconds)
+  query_result_ttl: 3600  # 1 hour
+  schema_ttl: 86400  # 24 hours
+  llm_response_ttl: 7200  # 2 hours
+  
+  # Redis settings (if using Redis)
+  redis_host: localhost
+  redis_port: 6379
+  redis_password: ${REDIS_PASSWORD}
+  redis_db: 0
+  redis_ssl: false
+
+# Security configuration
+security:
+  # Query validation
+  allow_only_select: true
+  max_query_complexity: 10
+  allow_subqueries: false
+  allow_unions: false
+  
+  # Rate limiting
+  enable_rate_limiting: true
+  rate_limit_per_minute: 100
+  rate_limit_per_hour: 1000
+  
+  # Access control
+  enable_access_control: true
+  default_user_permissions: ["SELECT"]
+  require_authentication: false
+  
+  # Audit logging
+  enable_audit_logging: true
+  audit_log_path: ~/.cognidb/audit.log
+  log_query_results: false
+  
+  # Encryption
+  encrypt_cache: true
+  encrypt_logs: true
+  encryption_key: ${ENCRYPTION_KEY}
+  
+  # Network security
+  allowed_ip_ranges: []
+  require_ssl: true
+
+# Feature flags
+enable_natural_language: true
+enable_query_explanation: true
+enable_query_optimization: true
+enable_auto_indexing: false
+
+# Monitoring
+enable_metrics: true
+metrics_port: 9090
+enable_tracing: true
+tracing_endpoint: null
