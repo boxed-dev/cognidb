@@ -1,6 +1,6 @@
-# CogniDB 🧠
+# <i><b>`CogniDB`</b></i>
 
-**A secure, production-ready natural language database interface** that empowers users to query databases using plain English while maintaining enterprise-grade security and performance.
+A secure, production-ready natural language database interface that empowers users to query databases using plain English while maintaining enterprise-grade security and performance.<br>
 
 [![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/adrienckr/cognidb)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
@@ -8,52 +8,48 @@
 
 ---
 
-> **🔒 Security First**: CogniDB has been completely rebuilt with security as the top priority. All queries are validated, sanitized, and executed with proper parameterization to prevent SQL injection and other attacks.
+<samp>
+
+## <b>Features</b>
+
+### <b>Core Capabilities</b><br>
+- <b>🗣️ Natural Language Querying</b>: Ask questions in plain English<br>
+- <b>🔍 Intelligent SQL Generation</b>: Context-aware query generation with schema understanding<br>
+- <b>🛡️ Enterprise Security</b>: Multi-layer security validation and sanitization<br>
+- <b>🚀 High Performance</b>: Query caching, connection pooling, and optimization<br>
+- <b>📊 Multi-Database Support</b>: MySQL, PostgreSQL, MongoDB, DynamoDB, SQLite<br>
+- <b>💰 Cost Control</b>: LLM usage tracking with configurable limits<br>
+- <b>📈 Query Optimization</b>: AI-powered query performance suggestions
+
+### <b>Security Features</b><br>
+- <b>SQL Injection Prevention</b>: Parameterized queries and comprehensive validation<br>
+- <b>Access Control</b>: Table and column-level permissions<br>
+- <b>Rate Limiting</b>: Configurable request limits<br>
+- <b>Audit Logging</b>: Complete query audit trail<br>
+- <b>Encryption</b>: At-rest and in-transit encryption support
+
+### <b>AI/LLM Features</b><br>
+- <b>Multi-Provider Support</b>: OpenAI, Anthropic, Azure, HuggingFace, Local models<br>
+- <b>Cost Tracking</b>: Real-time usage and cost monitoring<br>
+- <b>Smart Caching</b>: Reduce costs with intelligent response caching<br>
+- <b>Few-Shot Learning</b>: Improve accuracy with custom examples
 
 ---
 
-## ✨ Features
+## <b>Quick Start</b>
 
-### Core Capabilities
-- **🗣️ Natural Language Querying**: Ask questions in plain English
-- **🔍 Intelligent SQL Generation**: Context-aware query generation with schema understanding
-- **🛡️ Enterprise Security**: Multi-layer security validation and sanitization
-- **🚀 High Performance**: Query caching, connection pooling, and optimization
-- **📊 Multi-Database Support**: MySQL, PostgreSQL, MongoDB, DynamoDB, SQLite
-- **💰 Cost Control**: LLM usage tracking with configurable limits
-- **📈 Query Optimization**: AI-powered query performance suggestions
+### <b>Installation</b>
 
-### Security Features
-- **SQL Injection Prevention**: Parameterized queries and comprehensive validation
-- **Access Control**: Table and column-level permissions
-- **Rate Limiting**: Configurable request limits
-- **Audit Logging**: Complete query audit trail
-- **Encryption**: At-rest and in-transit encryption support
+1. <b>`Install dependencies`</b><br>
+   <code>pip install cognidb</code>
 
-### AI/LLM Features
-- **Multi-Provider Support**: OpenAI, Anthropic, Azure, HuggingFace, Local models
-- **Cost Tracking**: Real-time usage and cost monitoring
-- **Smart Caching**: Reduce costs with intelligent response caching
-- **Few-Shot Learning**: Improve accuracy with custom examples
+2. <b>`With all optional dependencies`</b><br>
+   <code>pip install cognidb[all]</code>
 
----
+3. <b>`With specific features`</b><br>
+   <code>pip install cognidb[redis,azure]</code>
 
-## 🚀 Quick Start
-
-### Installation
-
-```bash
-# Basic installation
-pip install cognidb
-
-# With all optional dependencies
-pip install cognidb[all]
-
-# With specific features
-pip install cognidb[redis,azure]
-```
-
-### Basic Usage
+### <b>Basic Usage</b>
 
 ```python
 from cognidb import create_cognidb
@@ -84,7 +80,7 @@ if result['success']:
 db.close()
 ```
 
-### Using Context Manager
+### <b>Using Context Manager</b>
 
 ```python
 from cognidb import CogniDB
@@ -95,7 +91,7 @@ with CogniDB(config_file='cognidb.yaml') as db:
         "What were the sales trends last quarter?",
         explain=True  # Get explanation of the query
     )
-    
+
     if result['success']:
         print(f"Explanation: {result['explanation']}")
         for row in result['results']:
@@ -104,9 +100,9 @@ with CogniDB(config_file='cognidb.yaml') as db:
 
 ---
 
-## 🔧 Configuration
+## <b>Configuration</b>
 
-### Environment Variables
+### <b>Environment Variables</b>
 
 ```bash
 # Database settings
@@ -126,9 +122,9 @@ export LLM_MODEL=gpt-4
 export COGNIDB_CONFIG=/path/to/cognidb.yaml
 ```
 
-### Configuration File (YAML)
+### <b>Configuration File (YAML)</b>
 
-Create a `cognidb.yaml` file:
+Create a <code>cognidb.yaml</code> file:
 
 ```yaml
 database:
@@ -138,7 +134,7 @@ database:
   database: analytics_db
   username: ${DB_USER}  # Use environment variable
   password: ${DB_PASSWORD}
-  
+
   # Connection settings
   pool_size: 5
   query_timeout: 30
@@ -150,7 +146,7 @@ llm:
   model_name: gpt-4
   temperature: 0.1
   max_cost_per_day: 100.0
-  
+
   # Improve accuracy with examples
   few_shot_examples:
     - query: "Show total sales by month"
@@ -163,13 +159,13 @@ security:
   enable_audit_logging: true
 ```
 
-See `cognidb.example.yaml` for a complete configuration example.
+See <code>cognidb.example.yaml</code> for a complete configuration example.
 
 ---
 
-## 🎯 Advanced Features
+## <b>Advanced Features</b>
 
-### Query Optimization
+### <b>Query Optimization</b>
 
 ```python
 # Get optimization suggestions
@@ -181,7 +177,7 @@ print(f"Optimized: {optimization['optimized_query']}")
 print(f"Explanation: {optimization['explanation']}")
 ```
 
-### Query Suggestions
+### <b>Query Suggestions</b>
 
 ```python
 # Get AI-powered query suggestions
@@ -194,7 +190,7 @@ for suggestion in suggestions:
 # - customers who haven't verified their email
 ```
 
-### Access Control
+### <b>Access Control</b>
 
 ```python
 from cognidb.security import AccessController
@@ -219,7 +215,7 @@ result = db.query(
 )
 ```
 
-### Cost Tracking
+### <b>Cost Tracking</b>
 
 ```python
 # Monitor LLM usage and costs
@@ -238,7 +234,7 @@ report = db.export_usage_report(
 
 ---
 
-## 🏗️ Architecture
+## <b>Architecture</b>
 
 CogniDB uses a modular, secure architecture:
 
@@ -258,27 +254,25 @@ CogniDB uses a modular, secure architecture:
                         └─────────────────┘     └─────────────────┘
 ```
 
-### Key Components
-
-1. **Security Layer**: Multi-stage validation and sanitization
-2. **LLM Manager**: Handles all AI interactions with fallback support
-3. **Query Generator**: Converts natural language to SQL with schema awareness
-4. **Database Drivers**: Secure, parameterized database connections
-5. **Cache Layer**: Reduces costs and improves performance
-
----
-
-## 🔒 Security Best Practices
-
-1. **Never expose credentials**: Use environment variables or secrets managers
-2. **Enable SSL/TLS**: Always use encrypted connections
-3. **Restrict permissions**: Use read-only database users when possible
-4. **Monitor usage**: Enable audit logging and review regularly
-5. **Update regularly**: Keep CogniDB and dependencies up to date
+### <b>Key Components</b><br>
+1. <b>Security Layer</b>: Multi-stage validation and sanitization<br>
+2. <b>LLM Manager</b>: Handles all AI interactions with fallback support<br>
+3. <b>Query Generator</b>: Converts natural language to SQL with schema awareness<br>
+4. <b>Database Drivers</b>: Secure, parameterized database connections<br>
+5. <b>Cache Layer</b>: Reduces costs and improves performance
 
 ---
 
-## 🧪 Testing
+## <b>Security Best Practices</b><br>
+1. <b>Never expose credentials</b>: Use environment variables or secrets managers<br>
+2. <b>Enable SSL/TLS</b>: Always use encrypted connections<br>
+3. <b>Restrict permissions</b>: Use read-only database users when possible<br>
+4. <b>Monitor usage</b>: Enable audit logging and review regularly<br>
+5. <b>Update regularly</b>: Keep CogniDB and dependencies up to date
+
+---
+
+## <b>Testing</b>
 
 ```bash
 # Run all tests
@@ -296,21 +290,20 @@ pytest tests/integration/ --db-host=localhost
 
 ---
 
-## 📊 Performance Tips
-
-1. **Use connection pooling**: Enabled by default for better performance
-2. **Enable caching**: Reduces LLM costs and improves response time
-3. **Optimize schemas**: Add appropriate indexes based on query patterns
-4. **Use prepared statements**: For frequently executed queries
-5. **Monitor query performance**: Use the optimization feature regularly
+## <b>Performance Tips</b><br>
+1. <b>Use connection pooling</b>: Enabled by default for better performance<br>
+2. <b>Enable caching</b>: Reduces LLM costs and improves response time<br>
+3. <b>Optimize schemas</b>: Add appropriate indexes based on query patterns<br>
+4. <b>Use prepared statements</b>: For frequently executed queries<br>
+5. <b>Monitor query performance</b>: Use the optimization feature regularly
 
 ---
 
-## 🤝 Contributing
+## <b>Contributing</b>
 
-We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+We welcome contributions! Please see <a href="CONTRIBUTING.md">CONTRIBUTING.md</a> for guidelines.
 
-### Development Setup
+### <b>Development Setup</b>
 
 ```bash
 # Clone the repository
@@ -329,27 +322,28 @@ pytest
 
 ---
 
-## 📜 License
+## <b>License</b>
 
-This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+This project is licensed under the MIT License - see <a href="LICENSE">LICENSE</a> for details.
 
 ---
 
-## 🙏 Acknowledgments
-
-- OpenAI, Anthropic, and the open-source LLM community
-- Contributors to SQLParse, psycopg2, and other dependencies
+## <b>Acknowledgments</b><br>
+- OpenAI, Anthropic, and the open-source LLM community<br>
+- Contributors to SQLParse, psycopg2, and other dependencies<br>
 - The CogniDB community for feedback and contributions
 
 ---
 
-## 📞 Support
-
-- **Documentation**: [https://cognidb.readthedocs.io](https://cognidb.readthedocs.io)
-- **Issues**: [GitHub Issues](https://github.com/adrienckr/cognidb/issues)
-- **Discussions**: [GitHub Discussions](https://github.com/adrienckr/cognidb/discussions)
-- **Email**: support@cognidb.io
+## <b>Support</b><br>
+- <b>Documentation</b>: <a href="https://cognidb.readthedocs.io">https://cognidb.readthedocs.io</a><br>
+- <b>Issues</b>: <a href="https://github.com/adrienckr/cognidb/issues">GitHub Issues</a><br>
+- <b>Discussions</b>: <a href="https://github.com/adrienckr/cognidb/discussions">GitHub Discussions</a><br>
+- <b>Email</b>: support@cognidb.io
 
 ---
 
+<i>Built with ❤️ for data democratization</i>
+
+</samp>
 **Built with ❤️ for data democratization**
