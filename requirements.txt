@@ -1,4 +1,65 @@
-mysql-connector-python
-psycopg2-binary
-sqlparse
-openai
+# Core database drivers
+mysql-connector-python>=8.0.33
+psycopg2-binary>=2.9.9
+pymongo>=4.6.0
+boto3>=1.28.0  # For AWS DynamoDB
+
+# SQL parsing and validation
+sqlparse>=0.4.4
+
+# LLM providers
+openai>=1.0.0
+anthropic>=0.8.0
+transformers>=4.35.0  # For HuggingFace models
+torch>=2.0.0  # For local models
+llama-cpp-python>=0.2.0  # For llama.cpp models (optional)
+
+# Security and encryption
+cryptography>=41.0.0
+
+# Configuration
+pyyaml>=6.0.1
+
+# Caching
+redis>=5.0.0  # For Redis cache (optional)
+
+# Cloud secrets management (optional)
+hvac>=1.2.0  # HashiCorp Vault
+azure-identity>=1.14.0  # Azure Key Vault
+azure-keyvault-secrets>=4.7.0  # Azure Key Vault
+
+# Testing
+pytest>=7.4.0
+pytest-cov>=4.1.0
+pytest-asyncio>=0.21.0
+pytest-mock>=3.11.0
+
+# Development tools
+black>=23.0.0
+flake8>=6.0.0
+mypy>=1.5.0
+pre-commit>=3.3.0
+
+# Documentation
+sphinx>=7.0.0
+sphinx-rtd-theme>=1.3.0
+
+# Monitoring and metrics (optional)
+prometheus-client>=0.18.0
+opentelemetry-api>=1.20.0
+opentelemetry-sdk>=1.20.0
+opentelemetry-instrumentation>=0.41b0
+
+# Data processing
+pandas>=2.0.0  # For result formatting
+numpy>=1.24.0  # For numerical operations
+
+# Web framework (if adding API)
+fastapi>=0.104.0  # Optional, for REST API
+uvicorn>=0.24.0  # ASGI server
+
+# Utilities
+python-dotenv>=1.0.0  # For .env file support
+click>=8.1.0  # For CLI interface
+rich>=13.6.0  # For beautiful terminal output
+tabulate>=0.9.0  # For table formatting
