@@ -1,160 +1,355 @@
-# <i><b>`CogniDB`</b></i>
+# CogniDB 🧠
 
-A natural language to SQL interface that empowers non-technical users to query databases using plain English. <br>
+**A secure, production-ready natural language database interface** that empowers users to query databases using plain English while maintaining enterprise-grade security and performance.
 
----
-
-<samp>
-
-> <b>[!IMPORTANT]</b><br>
-> <b>Handle Your Data Responsibly:</b> CogniDB interacts with your databases. <br>
-> Ensure your database credentials and connection details are kept secure. <br>
-> The developers are not responsible for any data mismanagement if you modify, self-host, or misuse the tool.
+[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/adrienckr/cognidb)
+[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org)
 
 ---
 
-## ✨ <b>Features</b>
-
-- <b>`Natural Language Querying`</b>: Ask questions in plain English (e.g., "What were the top-selling products last month?").
-- <b>`SQL Generation`</b>: Automatically parses questions, understands database schema, and generates safe SQL queries.
-- <b>`Direct Database Interaction`</b>: Connects to your database, executes the generated SQL, and returns results.
-- <b>`Single Method Call`</b>: Access all functionality through a simple `db.query('Your question')` method.
-- <b>`Multi-Database Support`</b>: Works with MySQL, PostgreSQL, MongoDB, and AWS RDS.
-- <b>`Speed and Efficiency`</b>: Designed to provide fast responses and eliminate data access bottlenecks.
-- <b>`Abstraction Layer`</b>: Offers a single, unified interface for interacting with various database systems.
+> **🔒 Security First**: CogniDB has been completely rebuilt with security as the top priority. All queries are validated, sanitized, and executed with proper parameterization to prevent SQL injection and other attacks.
 
 ---
 
-## 🚀 <b>Setup</b>
+## ✨ Features
 
-<b>Important:</b> CogniDB requires connection details for your target database(s). Ensure you have the necessary credentials (host, port, database name, user, password) ready.
+### Core Capabilities
+- **🗣️ Natural Language Querying**: Ask questions in plain English
+- **🔍 Intelligent SQL Generation**: Context-aware query generation with schema understanding
+- **🛡️ Enterprise Security**: Multi-layer security validation and sanitization
+- **🚀 High Performance**: Query caching, connection pooling, and optimization
+- **📊 Multi-Database Support**: MySQL, PostgreSQL, MongoDB, DynamoDB, SQLite
+- **💰 Cost Control**: LLM usage tracking with configurable limits
+- **📈 Query Optimization**: AI-powered query performance suggestions
 
-### Prerequisites
-- `Python` (3.7+)
-- `pip` (Python package installer)
+### Security Features
+- **SQL Injection Prevention**: Parameterized queries and comprehensive validation
+- **Access Control**: Table and column-level permissions
+- **Rate Limiting**: Configurable request limits
+- **Audit Logging**: Complete query audit trail
+- **Encryption**: At-rest and in-transit encryption support
+
+### AI/LLM Features
+- **Multi-Provider Support**: OpenAI, Anthropic, Azure, HuggingFace, Local models
+- **Cost Tracking**: Real-time usage and cost monitoring
+- **Smart Caching**: Reduce costs with intelligent response caching
+- **Few-Shot Learning**: Improve accuracy with custom examples
+
+---
+
+## 🚀 Quick Start
 
 ### Installation
 
-1. Install CogniDB using pip:<br>
-   ```bash
-   pip install cognidb
-   ```
-2. Import CogniDB in your Python script and configure your database connection: <br>
-   ```python
-   from cognidb import CogniDB
+```bash
+# Basic installation
+pip install cognidb
 
-   db = CogniDB(
-       db_type="postgresql",  # Or "mysql", "mongodb", "aws-rds"
-       host="localhost",
-       port=5432,
-       database="mydb",
-       user="admin",
-       password="secret"
-   )
-   ```
+# With all optional dependencies
+pip install cognidb[all]
 
----
-
-## 🛠️ <b>Usage</b>
-
-### Querying Your Database
-
-Once CogniDB is configured, you can query your database using natural language:
-
-```python
-result = db.query("Show me the monthly sales trend for 2023")
-print(result)
-
-# Example: What were the top-selling products last month?
-# result = db.query("What were the top-selling products last month?")
-# print(result)
+# With specific features
+pip install cognidb[redis,azure]
 ```
 
-### Supported Databases
-CogniDB's architecture is modular, supporting the following databases through dedicated drivers:
-- **MySQL**
-- **PostgreSQL**
-- **MongoDB**
-- **AWS-managed services** (RDS)
+### Basic Usage
 
-All drivers inherit from a `base_db` for common functionality, ensuring consistency and ease of extension.
+```python
+from cognidb import create_cognidb
 
----
+# Initialize with configuration
+db = create_cognidb(
+    database={
+        'type': 'postgresql',
+        'host': 'localhost',
+        'database': 'mydb',
+        'username': 'user',
+        'password': 'pass'
+    },
+    llm={
+        'provider': 'openai',
+        'api_key': 'your-api-key'
+    }
+)
 
-## 🏗️ <b>Technical Architecture</b>
+# Query in natural language
+result = db.query("Show me the top 10 customers by total purchase amount")
 
-CogniDB operates through a sophisticated yet streamlined process:
+if result['success']:
+    print(f"SQL: {result['sql']}")
+    print(f"Results: {result['results']}")
 
-1.  **`Driver Abstraction`**:
-    *   Based on the `db_type` provided during initialization, CogniDB dynamically loads the appropriate DB-API 2.0 compliant driver:
-        *   MySQL → `mysql-connector-python`
-        *   PostgreSQL → `psycopg2`
-        *   MongoDB → `pymongo`
-        *   AWS → Utilizes host-auth chaining for AWS-managed database services.
-2.  **`Schema Introspection`**:
-    *   Upon establishing a connection, CogniDB fetches table names, column names, and their data types.
-    *   This schema information is embedded into the prompt sent to the Large Language Model (LLM) to ground its SQL generation process, ensuring contextually accurate queries.
-3.  **`SQL Execution`**:
-    *   The SQL query generated by the LLM is:
-        *   **Sanitized**: Ensures only `SELECT` statements are executed, preventing accidental data modification or deletion.
-        *   **Logged**: For auditing and debugging purposes.
-        *   **Executed**: Via a database cursor.
-    *   Results are fetched and returned as Python dictionaries or Pandas DataFrames for easy use.
-4.  **`Connection Lifecycle Management`**:
-    *   Database cursors and connections are explicitly closed after each query to manage resources efficiently.
-    *   For high-frequency applications, CogniDB supports connection pooling using `SimpleConnectionPool` from `psycopg2` (for PostgreSQL) or `QueuePool` from `SQLAlchemy`.
+# Always close when done
+db.close()
+```
 
-### Flowchart
-Visual representation of the CogniDB workflow:
-[View Flowchart on Excalidraw](https://excalidraw.com/#json=UO9xTkXzDYXqrDvTipeB0,dgOcv-T9LnWEWlirpx1u6A)
+### Using Context Manager
 
----
+```python
+from cognidb import CogniDB
 
-## 🧠 <b>Problems Faced and Solutions</b>
-
-Developing a robust natural language to SQL interface comes with its challenges. Here's how CogniDB addresses them:
-
-1.  **`LLM Misinterpretation`**:
-    *   **Problem**: The LLM occasionally generated incorrect joins or misunderstood column aliases.
-    *   **Solution**: Enhanced the LLM prompt with detailed schema context and incorporated few-shot examples to guide the model towards more accurate SQL generation.
-2.  **`Unsafe SQL Generation`**:
-    *   **Problem**: The LLM might generate potentially harmful SQL commands like `DELETE` or `DROP`.
-    *   **Solution**: Implemented a post-generation sanitizer that strictly ensures only `SELECT` statements are executed, safeguarding data integrity.
-3.  **`Query Timeouts`**:
-    *   **Problem**: Some natural language queries resulted in complex SQL that ran for extended periods on large datasets.
-    *   **Solution**: Integrated configurable timeout settings for queries. Future plans include adding cost-based optimization suggestions to help users formulate more efficient queries.
-4.  **`Schema Drift`**:
-    *   **Problem**: Changes in the database schema (e.g., new tables, altered columns) could break the LLM's alignment and lead to incorrect queries.
-    *   **Solution**: Added a mechanism for periodic schema refresh. Implemented an error-based fallback recovery system to handle discrepancies gracefully.
-5.  **`Ambiguity in User Language`**:
-    *   **Problem**: Users often ask questions that can be interpreted in multiple ways.
-    *   **Solution**: Introduced clarification prompts that engage the user when the LLM's confidence in interpreting a query is low. Implemented reranking of fuzzy matches to offer the most probable interpretations.
+# Automatically handles connection cleanup
+with CogniDB(config_file='cognidb.yaml') as db:
+    result = db.query(
+        "What were the sales trends last quarter?",
+        explain=True  # Get explanation of the query
+    )
+    
+    if result['success']:
+        print(f"Explanation: {result['explanation']}")
+        for row in result['results']:
+            print(row)
+```
 
 ---
 
-## 📜 <b>Design Principles</b>
+## 🔧 Configuration
 
-CogniDB is built upon the following core principles:
+### Environment Variables
 
--   **`Abstraction-First`**: Provide a single, consistent interface for interacting with all supported databases.
--   **`LLM-Safe`**: Prioritize data safety through rigorous sanitization and read-only enforcement for LLM-generated queries.
--   **`Modular Architecture`**: Design for extensibility, allowing new database drivers to be easily added by extending the `base_db.py` module.
--   **`Scalable`**: Engineered to be embedded within various applications, such as dashboards or chat interfaces, handling diverse workloads.
+```bash
+# Database settings
+export DB_TYPE=postgresql
+export DB_HOST=localhost
+export DB_PORT=5432
+export DB_NAME=mydb
+export DB_USER=dbuser
+export DB_PASSWORD=secure_password
+
+# LLM settings
+export LLM_PROVIDER=openai
+export LLM_API_KEY=your_api_key
+export LLM_MODEL=gpt-4
+
+# Optional: Use configuration file instead
+export COGNIDB_CONFIG=/path/to/cognidb.yaml
+```
+
+### Configuration File (YAML)
+
+Create a `cognidb.yaml` file:
+
+```yaml
+database:
+  type: postgresql
+  host: localhost
+  port: 5432
+  database: analytics_db
+  username: ${DB_USER}  # Use environment variable
+  password: ${DB_PASSWORD}
+  
+  # Connection settings
+  pool_size: 5
+  query_timeout: 30
+  ssl_enabled: true
+
+llm:
+  provider: openai
+  api_key: ${LLM_API_KEY}
+  model_name: gpt-4
+  temperature: 0.1
+  max_cost_per_day: 100.0
+  
+  # Improve accuracy with examples
+  few_shot_examples:
+    - query: "Show total sales by month"
+      sql: "SELECT DATE_TRUNC('month', order_date) as month, SUM(amount) as total FROM orders GROUP BY month ORDER BY month"
+
+security:
+  allow_only_select: true
+  enable_rate_limiting: true
+  rate_limit_per_minute: 100
+  enable_audit_logging: true
+```
+
+See `cognidb.example.yaml` for a complete configuration example.
 
 ---
 
-## 💬 <b>Feedback & Contributions</b>
+## 🎯 Advanced Features
 
-We'd love to hear your thoughts! If you encounter any issues, have suggestions for improvement, or want to contribute:
-- Please open an issue on the GitHub repository.
-- For contributions, feel free to fork the repository and submit a pull request.
+### Query Optimization
 
-Your feedback and contributions are invaluable! 💌
+```python
+# Get optimization suggestions
+sql = "SELECT * FROM orders WHERE customer_id IN (SELECT id FROM customers WHERE country = 'USA')"
+optimization = db.optimize_query(sql)
+
+print(f"Original: {optimization['original_query']}")
+print(f"Optimized: {optimization['optimized_query']}")
+print(f"Explanation: {optimization['explanation']}")
+```
+
+### Query Suggestions
+
+```python
+# Get AI-powered query suggestions
+suggestions = db.suggest_queries("customers who haven't")
+for suggestion in suggestions:
+    print(f"- {suggestion}")
+# Output:
+# - customers who haven't made a purchase in the last 30 days
+# - customers who haven't updated their profile
+# - customers who haven't verified their email
+```
+
+### Access Control
+
+```python
+from cognidb.security import AccessController
+
+# Set up user permissions
+access = AccessController()
+access.create_restricted_user(
+    user_id="analyst_1",
+    table_permissions={
+        'customers': {
+            'operations': ['SELECT'],
+            'columns': ['id', 'name', 'email', 'country'],
+            'row_filter': "country = 'USA'"  # Row-level security
+        }
+    }
+)
+
+# Query with user context
+result = db.query(
+    "Show me all customer emails",
+    user_id="analyst_1"  # Will only see US customers
+)
+```
+
+### Cost Tracking
+
+```python
+# Monitor LLM usage and costs
+stats = db.get_usage_stats()
+print(f"Total cost today: ${stats['daily_cost']:.2f}")
+print(f"Remaining budget: ${stats['remaining_budget']:.2f}")
+print(f"Queries today: {stats['request_count']}")
+
+# Export usage report
+report = db.export_usage_report(
+    start_date='2024-01-01',
+    end_date='2024-01-31',
+    format='csv'
+)
+```
 
 ---
 
-## License
+## 🏗️ Architecture
 
-This project is licensed under the MIT License.
+CogniDB uses a modular, secure architecture:
 
-</samp>
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│  User Input     │────▶│  Security Layer │────▶│  LLM Manager    │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+                                │                         │
+                                ▼                         ▼
+                        ┌─────────────────┐     ┌─────────────────┐
+                        │  Query Validator│     │ Query Generator │
+                        └─────────────────┘     └─────────────────┘
+                                │                         │
+                                ▼                         ▼
+                        ┌─────────────────┐     ┌─────────────────┐
+                        │ Database Driver │────▶│  Result Cache   │
+                        └─────────────────┘     └─────────────────┘
+```
+
+### Key Components
+
+1. **Security Layer**: Multi-stage validation and sanitization
+2. **LLM Manager**: Handles all AI interactions with fallback support
+3. **Query Generator**: Converts natural language to SQL with schema awareness
+4. **Database Drivers**: Secure, parameterized database connections
+5. **Cache Layer**: Reduces costs and improves performance
+
+---
+
+## 🔒 Security Best Practices
+
+1. **Never expose credentials**: Use environment variables or secrets managers
+2. **Enable SSL/TLS**: Always use encrypted connections
+3. **Restrict permissions**: Use read-only database users when possible
+4. **Monitor usage**: Enable audit logging and review regularly
+5. **Update regularly**: Keep CogniDB and dependencies up to date
+
+---
+
+## 🧪 Testing
+
+```bash
+# Run all tests
+pytest
+
+# Run with coverage
+pytest --cov=cognidb
+
+# Run security tests only
+pytest tests/security/
+
+# Run integration tests
+pytest tests/integration/ --db-host=localhost
+```
+
+---
+
+## 📊 Performance Tips
+
+1. **Use connection pooling**: Enabled by default for better performance
+2. **Enable caching**: Reduces LLM costs and improves response time
+3. **Optimize schemas**: Add appropriate indexes based on query patterns
+4. **Use prepared statements**: For frequently executed queries
+5. **Monitor query performance**: Use the optimization feature regularly
+
+---
+
+## 🤝 Contributing
+
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
+
+### Development Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/adrienckr/cognidb
+cd cognidb
+
+# Install in development mode
+pip install -e .[dev]
+
+# Run pre-commit hooks
+pre-commit install
+
+# Run tests
+pytest
+```
+
+---
+
+## 📜 License
+
+This project is licensed under the MIT License - see [LICENSE](LICENSE) for details.
+
+---
+
+## 🙏 Acknowledgments
+
+- OpenAI, Anthropic, and the open-source LLM community
+- Contributors to SQLParse, psycopg2, and other dependencies
+- The CogniDB community for feedback and contributions
+
+---
+
+## 📞 Support
+
+- **Documentation**: [https://cognidb.readthedocs.io](https://cognidb.readthedocs.io)
+- **Issues**: [GitHub Issues](https://github.com/adrienckr/cognidb/issues)
+- **Discussions**: [GitHub Discussions](https://github.com/adrienckr/cognidb/discussions)
+- **Email**: support@cognidb.io
+
+---
+
+**Built with ❤️ for data democratization**
