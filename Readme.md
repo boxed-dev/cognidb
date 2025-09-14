@@ -303,7 +303,7 @@ We welcome contributions! Please see <a href="CONTRIBUTING.md">CONTRIBUTING.md</
 
 ```bash
 # Clone the repository
-git clone https://github.com/adrienckr/cognidb
+git clone https://github.com/boxed-dev/cognidb
 cd cognidb
 
 # Install in development mode
