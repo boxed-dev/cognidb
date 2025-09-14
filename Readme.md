@@ -2,10 +2,6 @@
 
 A secure, production-ready natural language database interface that empowers users to query databases using plain English while maintaining enterprise-grade security and performance.<br>
 
-[![Version](https://img.shields.io/badge/version-2.0.0-blue.svg)](https://github.com/adrienckr/cognidb)
-[![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
-[![Python](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org)
-
 ---
 
 <samp>
@@ -335,15 +331,6 @@ This project is licensed under the MIT License - see <a href="LICENSE">LICENSE</
 
 ---
 
-## <b>Support</b><br>
-- <b>Documentation</b>: <a href="https://cognidb.readthedocs.io">https://cognidb.readthedocs.io</a><br>
-- <b>Issues</b>: <a href="https://github.com/adrienckr/cognidb/issues">GitHub Issues</a><br>
-- <b>Discussions</b>: <a href="https://github.com/adrienckr/cognidb/discussions">GitHub Discussions</a><br>
-- <b>Email</b>: support@cognidb.io
-
----
-
 <i>Built with ❤️ for data democratization</i>
 
 </samp>
-**Built with ❤️ for data democratization**
