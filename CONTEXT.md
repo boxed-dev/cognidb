@@ -43,3 +43,11 @@ _Avoid_: migration (as a CogniDB feature)
 **Defense in depth**:
 The combination of statement policy, least-privilege database grants, and audit events. No single layer is treated as sufficient.
 _Avoid_: "secure by default" as a claim without naming the layers
+
+**Single-statement execution**:
+The default rule that one pipeline run executes at most one SQL statement. Always required in read mode.
+_Avoid_: batch (unqualified), script
+
+**Multi-statement batch**:
+More than one SQL statement in a single pipeline run. Forbidden in read mode. In write mode, only if the library consumer enables an additional explicit opt-in (separate from write mode itself).
+_Avoid_: transaction script (as free NL batching)
