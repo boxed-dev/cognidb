@@ -1,6 +1,6 @@
 """Access control and permissions management."""
 
-from typing import Dict, List, Set, Optional
+from typing import Any, Dict, List, Set, Optional
 from dataclasses import dataclass, field
 from enum import Enum, auto
 from ..core.exceptions import SecurityError

@@ -1,56 +1,21 @@
 """Setup configuration for CogniDB."""
 
-from setuptools import setup, find_packages
 from pathlib import Path
+from setuptools import setup, find_packages
 
-# Read the README file
 this_directory = Path(__file__).parent
-long_description = (this_directory / "Readme.md").read_text()
-
-# Read requirements
-requirements = (this_directory / "requirements.txt").read_text().splitlines()
-
-# Separate optional requirements
-core_requirements = []
-optional_requirements = {
-    'llama': ['llama-cpp-python>=0.2.0'],
-    'azure': ['azure-identity>=1.14.0', 'azure-keyvault-secrets>=4.7.0'],
-    'vault': ['hvac>=1.2.0'],
-    'redis': ['redis>=5.0.0'],
-    'api': ['fastapi>=0.104.0', 'uvicorn>=0.24.0'],
-    'dev': [
-        'pytest>=7.4.0',
-        'pytest-cov>=4.1.0',
-        'pytest-asyncio>=0.21.0',
-        'pytest-mock>=3.11.0',
-        'black>=23.0.0',
-        'flake8>=6.0.0',
-        'mypy>=1.5.0',
-        'pre-commit>=3.3.0'
-    ],
-    'docs': [
-        'sphinx>=7.0.0',
-        'sphinx-rtd-theme>=1.3.0'
-    ]
-}
-
-# Filter core requirements (exclude optional ones)
-for line in requirements:
-    if line and not line.startswith('#'):
-        # Skip optional dependencies
-        if not any(opt in line.lower() for opt in ['llama', 'azure', 'hvac', 'redis', 'fastapi', 'pytest', 'sphinx']):
-            core_requirements.append(line)
+long_description = (this_directory / "Readme.md").read_text(encoding="utf-8")
 
 setup(
     name="cognidb",
     version="2.0.0",
-    author="CogniDB Team",
-    author_email="team@cognidb.io",
+    author="Rishabh Kumar",
+    author_email="rishabh.vaaiv@gmail.com",
     description="Secure Natural Language Database Interface",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    url="https://github.com/adrienckr/cognidb",
-    packages=find_packages(),
+    url="https://github.com/boxed-dev/cognidb",
+    packages=find_packages(exclude=["tests", "tests.*", "examples", "examples.*"]),
     classifiers=[
         "Development Status :: 4 - Beta",
         "Intended Audience :: Developers",
@@ -58,34 +23,38 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
     ],
-    python_requires=">=3.8",
-    install_requires=core_requirements,
+    python_requires=">=3.9",
+    install_requires=[
+        "sqlparse>=0.4.4",
+        "pyyaml>=6.0.1",
+        "python-dotenv>=1.0.0",
+        "mysql-connector-python>=8.0.33",
+        "psycopg2-binary>=2.9.9",
+        "openai>=1.0.0",
+        "anthropic>=0.8.0",
+        "cryptography>=41.0.0",
+    ],
     extras_require={
-        **optional_requirements,
-        'all': sum(optional_requirements.values(), [])
-    },
-    entry_points={
-        'console_scripts': [
-            'cognidb=cognidb.cli:main',
+        "mongo": ["pymongo>=4.6.0"],
+        "aws": ["boto3>=1.28.0"],
+        "redis": ["redis>=5.0.0"],
+        "dev": [
+            "pytest>=7.4.0",
+            "pytest-cov>=4.1.0",
+            "pytest-asyncio>=0.21.0",
+            "pytest-mock>=3.11.0",
         ],
     },
     include_package_data=True,
-    package_data={
-        'cognidb': [
-            'cognidb.example.yaml',
-            'examples/*.py',
-        ],
-    },
-    keywords='database sql natural-language nlp ai llm security',
+    keywords="database sql natural-language nlp ai llm security nl2sql",
     project_urls={
-        'Bug Reports': 'https://github.com/adrienckr/cognidb/issues',
-        'Source': 'https://github.com/adrienckr/cognidb',
-        'Documentation': 'https://cognidb.readthedocs.io',
+        "Bug Reports": "https://github.com/boxed-dev/cognidb/issues",
+        "Source": "https://github.com/boxed-dev/cognidb",
     },
+    license="MIT",
 )

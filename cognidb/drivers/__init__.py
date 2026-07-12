@@ -1,15 +1,13 @@
-"""Database drivers module."""
+"""Database drivers module.
+
+Currently supported: MySQL, PostgreSQL.
+MongoDB, DynamoDB, and SQLite are planned and not yet implemented.
+"""
 
 from .mysql_driver import MySQLDriver
 from .postgres_driver import PostgreSQLDriver
-from .mongodb_driver import MongoDBDriver
-from .dynamodb_driver import DynamoDBDriver
-from .sqlite_driver import SQLiteDriver
 
 __all__ = [
-    'MySQLDriver',
-    'PostgreSQLDriver',
-    'MongoDBDriver',
-    'DynamoDBDriver',
-    'SQLiteDriver'
+    "MySQLDriver",
+    "PostgreSQLDriver",
 ]
