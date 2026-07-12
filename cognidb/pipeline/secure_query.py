@@ -9,8 +9,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Protocol, Tuple
 
+from ..intent import render_sql
 from ..schema.linking import link_schema
-from ..security.statement_policy import StatementMode, StatementPolicy
+from ..security.column_extractor import extract_columns_by_table
+from ..security.statement_policy import StatementPolicy
 from ..security.table_extractor import extract_primary_operation, extract_tables
 
 logger = logging.getLogger(__name__)
@@ -26,6 +28,14 @@ class _Generator(Protocol):
     def generate_sql(
         self, natural_language: str, schema: Dict[str, Any], examples: Any = None
     ) -> str: ...
+
+    def explain_query(self, sql: str, schema: Dict[str, Any]) -> str: ...
+
+
+class _IntentGenerator(Protocol):
+    def generate_intent(
+        self, natural_language: str, schema: Dict[str, Any], examples: Any = None
+    ) -> Any: ...
 
     def explain_query(self, sql: str, schema: Dict[str, Any]) -> str: ...
 
@@ -77,9 +87,9 @@ class SecureQueryPipeline:
 
     1. Sanitize NL
     2. Link schema context
-    3. Generate SQL (or override)
+    3. Generate SQL (free-form default) or intent→render_sql (opt-in)
     4. Statement policy (mode, multi-stmt, allowlist ops)
-    5. Table allowlist access control
+    5. Table/column allowlist access control
     6. Execute; optional single repair on failure
     7. Audit
     """
@@ -102,6 +112,7 @@ class SecureQueryPipeline:
         schema_top_k: int = 8,
         max_schema_tables: int = 40,
         repair_budget: int = 1,
+        generation_mode: str = "free_form",
     ):
         self.driver = driver
         self.generator = generator
@@ -118,6 +129,12 @@ class SecureQueryPipeline:
         self.schema_top_k = schema_top_k
         self.max_schema_tables = max_schema_tables
         self.repair_budget = max(0, repair_budget)
+        mode = (generation_mode or "free_form").strip().lower()
+        if mode not in ("free_form", "intent"):
+            raise ValueError(
+                f"generation_mode must be 'free_form' or 'intent', got {generation_mode!r}"
+            )
+        self.generation_mode = mode
 
         # Keep validator ops aligned with policy
         self.validator.allowed_operations = list(self.policy.allowed_operations)
@@ -146,6 +163,8 @@ class SecureQueryPipeline:
 
             if sql_override is not None:
                 sql_query = sql_override.strip()
+            elif self.generation_mode == "intent":
+                sql_query = self._generate_via_intent(sanitized, schema_ctx)
             else:
                 sql_query = self.generator.generate_sql(
                     sanitized,
@@ -199,6 +218,20 @@ class SecureQueryPipeline:
                 repaired=repaired,
             )
 
+    def _generate_via_intent(self, sanitized: str, schema_ctx: Dict[str, Any]) -> str:
+        """NL → QueryIntent (port) → deterministic render_sql."""
+        gen_intent = getattr(self.generator, "generate_intent", None)
+        if not callable(gen_intent):
+            raise ValueError(
+                "generation_mode='intent' requires a generator with generate_intent()"
+            )
+        intent = gen_intent(
+            sanitized,
+            schema_ctx,
+            examples=self.few_shot_examples,
+        )
+        return render_sql(intent)
+
     def _enforce(self, sql: str, user_id: Optional[str]) -> str:
         ok_ms, err_ms = self.policy.check_multi_statement(sql)
         if not ok_ms:
@@ -220,7 +253,12 @@ class SecureQueryPipeline:
             tables = extract_tables(sql)
             if tables:
                 self.access_controller.check_table_access(user_id, tables)
-            # Column checks are best-effort when * is used; skip star expansion here
+                columns_by_table = extract_columns_by_table(sql, tables)
+                for table, columns in columns_by_table.items():
+                    if columns:
+                        self.access_controller.check_column_access(
+                            user_id, table, columns
+                        )
 
         return sql
 

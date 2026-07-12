@@ -9,16 +9,22 @@ CogniDB is designed to keep LLM-generated SQL on a constrained path.
 - Destructive statements (DROP/DELETE/UPDATE/UPDATE/INSERT/…)
 - Over-broad data access without table/column ACLs
 
+Full write-up (assets, mitigations, honest non-goals): [docs/threat-model.md](docs/threat-model.md).
+
 ## Built-in controls
 
+- Statement policy: **read mode** default; **write mode** opt-in for DML; DDL always rejected
 - SELECT-oriented allowlists (configurable)
 - Forbidden keyword and injection pattern checks
 - Identifier validation
-- Optional table/column access control
+- Optional table/column access control by caller identity
 - Audit logging hooks
+- Defense in depth with least-privilege DB grants (library consumer responsibility)
+- Adversarial SQL corpus (`tests/security/corpus/`) — payloads must fail closed in read mode
 
 ## Supported databases (current)
 
+- SQLite
 - MySQL
 - PostgreSQL
 

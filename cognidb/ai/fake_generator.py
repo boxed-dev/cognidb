@@ -1,8 +1,10 @@
-"""Deterministic SQL generator for offline tests (no network)."""
+"""Deterministic SQL / intent generators for offline tests (no network)."""
 
 from __future__ import annotations
 
 from typing import Any, Dict, Optional
+
+from ..core.query_intent import QueryIntent
 
 
 class FakeSQLGenerator:
@@ -28,3 +30,26 @@ class FakeSQLGenerator:
     ) -> str:
         self.repair_calls += 1
         return self.repair_sql if self.repair_sql is not None else sql
+
+
+class FakeIntentGenerator:
+    """Returns a canned QueryIntent for generation_mode='intent' tests."""
+
+    def __init__(self, intent: QueryIntent):
+        self.intent = intent
+        self.calls = 0
+
+    def generate_intent(
+        self, natural_language: str, schema: Dict[str, Any], examples: Any = None
+    ) -> QueryIntent:
+        self.calls += 1
+        return self.intent
+
+    def generate_sql(
+        self, natural_language: str, schema: Dict[str, Any], examples: Any = None
+    ) -> str:
+        # Free-form path should not be used in intent mode; keep for Protocol compat
+        raise RuntimeError("FakeIntentGenerator does not produce free-form SQL")
+
+    def explain_query(self, sql: str, schema: Dict[str, Any]) -> str:
+        return f"Fake explanation for: {sql}"

@@ -1,0 +1,266 @@
+[
+  {
+    "id": "sqli-classic-or-1eq1",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR 1 = 1",
+    "notes": "Always-true OR predicate"
+  },
+  {
+    "id": "sqli-classic-or-quoted",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE name = 'x' OR '1' = '1'",
+    "notes": "Quoted always-true OR"
+  },
+  {
+    "id": "sqli-tautology-or-2eq2",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR 2 = 2",
+    "notes": "Numeric tautology OR 2=2 (not just 1=1)"
+  },
+  {
+    "id": "sqli-tautology-or-0eq0",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR 0=0",
+    "notes": "Numeric tautology OR 0=0 compact"
+  },
+  {
+    "id": "sqli-tautology-or-char-eq",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE name = 'x' OR 'a' = 'a'",
+    "notes": "Quoted char tautology OR 'a'='a'"
+  },
+  {
+    "id": "sqli-tautology-or-string-eq",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR 'x'='x'",
+    "notes": "Quoted string tautology compact"
+  },
+  {
+    "id": "sqli-tautology-or-true",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR TRUE",
+    "notes": "Boolean literal tautology OR TRUE"
+  },
+  {
+    "id": "sqli-tautology-or-true-parens",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR (TRUE)",
+    "notes": "Boolean tautology OR (TRUE)"
+  },
+  {
+    "id": "sqli-tautology-and-2eq2",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 AND 2 = 2",
+    "notes": "AND-side numeric tautology"
+  },
+  {
+    "id": "sqli-tautology-or-2eq2-parens",
+    "category": "classic_sqli",
+    "sql": "SELECT * FROM users WHERE id = 1 OR (2=2)",
+    "notes": "Parenthesized numeric tautology"
+  },
+  {
+    "id": "sqli-comment-terminator",
+    "category": "comment_tricks",
+    "sql": "SELECT * FROM users WHERE id = 1; -- DROP TABLE users",
+    "notes": "Statement terminator then SQL comment"
+  },
+  {
+    "id": "sqli-block-comment-terminator",
+    "category": "comment_tricks",
+    "sql": "SELECT * FROM users WHERE id = 1; /* trailing */",
+    "notes": "Terminator followed by block comment"
+  },
+  {
+    "id": "stacked-select-delete",
+    "category": "stacked_queries",
+    "sql": "SELECT 1; DELETE FROM users",
+    "notes": "Stacked DELETE after SELECT"
+  },
+  {
+    "id": "stacked-select-drop",
+    "category": "stacked_queries",
+    "sql": "SELECT id FROM users; DROP TABLE users",
+    "notes": "Stacked DROP after SELECT"
+  },
+  {
+    "id": "stacked-select-insert",
+    "category": "stacked_queries",
+    "sql": "SELECT 1; INSERT INTO audit(msg) VALUES('pwned')",
+    "notes": "Stacked INSERT after SELECT — forbidden in read mode"
+  },
+  {
+    "id": "stacked-select-update",
+    "category": "stacked_queries",
+    "sql": "SELECT id FROM users; UPDATE users SET role = 'admin'",
+    "notes": "Stacked UPDATE after SELECT"
+  },
+  {
+    "id": "stacked-select-truncate",
+    "category": "stacked_queries",
+    "sql": "SELECT 1; TRUNCATE TABLE users",
+    "notes": "Stacked TRUNCATE after SELECT"
+  },
+  {
+    "id": "union-password-exfil",
+    "category": "union_abuse",
+    "sql": "SELECT id FROM users WHERE id = 1 UNION SELECT password FROM secrets",
+    "notes": "UNION SELECT to exfiltrate secrets"
+  },
+  {
+    "id": "union-all-schema",
+    "category": "union_abuse",
+    "sql": "SELECT name FROM products UNION ALL SELECT table_name FROM information_schema.tables",
+    "notes": "UNION ALL against information_schema"
+  },
+  {
+    "id": "into-outfile",
+    "category": "file_access",
+    "sql": "SELECT password FROM users INTO OUTFILE '/tmp/dump.txt'",
+    "notes": "MySQL INTO OUTFILE write"
+  },
+  {
+    "id": "load-file",
+    "category": "file_access",
+    "sql": "SELECT LOAD_FILE('/etc/passwd')",
+    "notes": "MySQL LOAD_FILE read"
+  },
+  {
+    "id": "sleep-mysql",
+    "category": "time_based",
+    "sql": "SELECT * FROM users WHERE id = 1 AND SLEEP(5)",
+    "notes": "MySQL SLEEP time-based probe"
+  },
+  {
+    "id": "benchmark-mysql",
+    "category": "time_based",
+    "sql": "SELECT BENCHMARK(10000000, SHA1('test'))",
+    "notes": "MySQL BENCHMARK time-based"
+  },
+  {
+    "id": "pg-sleep",
+    "category": "time_based",
+    "sql": "SELECT * FROM users WHERE id = 1 AND pg_sleep(5) IS NOT NULL",
+    "notes": "PostgreSQL pg_sleep"
+  },
+  {
+    "id": "waitfor-delay",
+    "category": "time_based",
+    "sql": "SELECT * FROM users; WAITFOR DELAY '00:00:05'",
+    "notes": "SQL Server WAITFOR DELAY (also stacked)"
+  },
+  {
+    "id": "ddl-drop-table",
+    "category": "ddl",
+    "sql": "DROP TABLE users",
+    "notes": "DDL DROP always rejected"
+  },
+  {
+    "id": "ddl-alter-table",
+    "category": "ddl",
+    "sql": "ALTER TABLE users ADD COLUMN evil TEXT",
+    "notes": "DDL ALTER always rejected"
+  },
+  {
+    "id": "ddl-truncate",
+    "category": "ddl",
+    "sql": "TRUNCATE TABLE users",
+    "notes": "DDL TRUNCATE always rejected"
+  },
+  {
+    "id": "ddl-create-table",
+    "category": "ddl",
+    "sql": "CREATE TABLE evil (id INT)",
+    "notes": "DDL CREATE always rejected"
+  },
+  {
+    "id": "ddl-rename",
+    "category": "ddl",
+    "sql": "RENAME TABLE users TO users_backup",
+    "notes": "DDL RENAME always rejected"
+  },
+  {
+    "id": "admin-grant",
+    "category": "admin",
+    "sql": "GRANT ALL ON *.* TO 'attacker'@'%'",
+    "notes": "GRANT always rejected"
+  },
+  {
+    "id": "admin-revoke",
+    "category": "admin",
+    "sql": "REVOKE ALL ON users FROM 'app'",
+    "notes": "REVOKE always rejected"
+  },
+  {
+    "id": "admin-exec-call",
+    "category": "admin",
+    "sql": "CALL dangerous_proc()",
+    "notes": "CALL/EXEC always rejected"
+  },
+  {
+    "id": "admin-xp-cmdshell",
+    "category": "admin",
+    "sql": "EXEC xp_cmdshell 'whoami'",
+    "notes": "SQL Server xp_cmdshell"
+  },
+  {
+    "id": "dml-insert-read-mode",
+    "category": "dml_in_read",
+    "sql": "INSERT INTO users (name) VALUES ('evil')",
+    "notes": "INSERT forbidden in read mode"
+  },
+  {
+    "id": "dml-update-read-mode",
+    "category": "dml_in_read",
+    "sql": "UPDATE users SET role = 'admin' WHERE id = 1",
+    "notes": "UPDATE forbidden in read mode"
+  },
+  {
+    "id": "dml-delete-read-mode",
+    "category": "dml_in_read",
+    "sql": "DELETE FROM users WHERE id = 1",
+    "notes": "DELETE forbidden in read mode"
+  },
+  {
+    "id": "dml-replace-read-mode",
+    "category": "dml_in_read",
+    "sql": "REPLACE INTO users (id, name) VALUES (1, 'evil')",
+    "notes": "REPLACE forbidden"
+  },
+  {
+    "id": "encoded-union-comment",
+    "category": "encoded_tricks",
+    "sql": "SELECT id FROM t WHERE a=1 UNION/**/SELECT password FROM users",
+    "notes": "UNION with inline comment obfuscation"
+  },
+  {
+    "id": "encoded-or-spacing",
+    "category": "encoded_tricks",
+    "sql": "SELECT * FROM users WHERE id=1 OR/**/1=1",
+    "notes": "OR 1=1 with comment spacing"
+  },
+  {
+    "id": "encoded-or-line-comment",
+    "category": "encoded_tricks",
+    "sql": "SELECT * FROM users WHERE id=1 OR--\n1=1",
+    "notes": "OR 1=1 obfuscated with line comment newline"
+  },
+  {
+    "id": "comment-hide-drop",
+    "category": "comment_tricks",
+    "sql": "SELECT 1;/**/DROP/**/TABLE/**/users",
+    "notes": "Stacked DROP with comment separators"
+  },
+  {
+    "id": "merge-statement",
+    "category": "ddl",
+    "sql": "MERGE INTO users AS t USING src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET name = s.name",
+    "notes": "MERGE always forbidden"
+  },
+  {
+    "id": "lock-tables",
+    "category": "admin",
+    "sql": "LOCK TABLES users WRITE",
+    "notes": "LOCK always forbidden"
+  }
+]

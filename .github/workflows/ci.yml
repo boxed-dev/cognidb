@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.10", "3.11"]
+        python-version: ["3.10", "3.11", "3.12"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -23,4 +23,38 @@ jobs:
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
       - name: Test
+        # Default fast job: unit + security + offline SQLite E2E.
+        # Postgres integration skips without DATABASE_URL / COGNIDB_PG_URL.
         run: pytest -q
+
+  postgres-integration:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: cognidb
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres -d cognidb"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Postgres integration tests
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/cognidb
+          COGNIDB_PG_URL: postgresql://postgres:postgres@localhost:5432/cognidb
+        run: pytest tests/integration/test_postgres_driver.py -q

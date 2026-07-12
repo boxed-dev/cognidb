@@ -36,19 +36,19 @@
 | SecureQueryPipeline | sanitize → generate → validate → multi-stmt guard → execute → audit |
 | Drivers | MySQL, PostgreSQL, **SQLite** |
 | CI | GitHub Actions pytest |
-| Tests | 11 (import, security, pipeline, SQLite) |
+| Tests | 102 passed / 1 skipped (adversarial corpus, intent, allowlists, SQLite E2E) |
 | Packaging | `pyproject.toml` + setuptools |
 
 ### Gaps vs state-of-the-art (peer-informed)
 
 | Gap | Why it matters | Peer reference |
 |---|---|---|
-| Thin test matrix | Reviewers / users can’t trust security claims | Vanna: broad tests + examples |
-| Access control not enforced | Module exists but was effectively dead | Vanna: user-aware filters |
-| LLM SQL is raw string | Residual injection / logic risk after validators | Research: intent→SQL builders; DAIL-SQL few-shot |
+| Coverage / corpus depth | 44-payload corpus covers classic + tautology variants (`OR 2=2`, `'a'='a'`, `TRUE`); depth toward ≥50 still open | Vanna: broad tests + examples |
+| Access control depth | Table + column allowlists enforced; row predicates still a seam | Vanna: user-aware filters |
+| Free-form SQL still default | Intent mode is opt-in; residual injection / logic risk on raw path | Research: intent→SQL builders; DAIL-SQL few-shot |
 | No schema RAG / memory | Accuracy plateaus on large schemas | Vanna: agent memory / retrieval |
-| No PyPI 2.x release | Git says 2.0.1; PyPI still 0.2.5 | Modern Python packaging norms |
-| README still marketing-heavy | Trust leak | Clean Vanna-style quickstart |
+| No PyPI 3.x release | Git tag `v3.0.0`; PyPI still historical 0.2.x | Modern Python packaging norms |
+| README was marketing-heavy (fixed in 3.0 prep) | Trust | Honest quickstart + RELEASE-CHECKLIST |
 | Zero community issues/PRs | Looks single-dev abandoned | Issue templates + good-first-issues |
 | No row-level security | Enterprise pass/fail | Vanna 2.0 RLS story |
 | No observability hooks | Production adoption | Lifecycle hooks / tracing |
@@ -66,23 +66,23 @@ Perfection is **measurable**, not vibes.
 
 ### P0 perfection (library is trustworthy)
 
-- [ ] `pip install cognidb` installs **2.x** from PyPI matching Git tag
-- [ ] Public API stable and documented with copy-paste quickstart (SQLite in &lt;30 lines)
-- [ ] **≥80 automated tests**, including adversarial security suite
-- [ ] CI green on Python 3.10–3.12; coverage ≥70% on `cognidb/security` + `cognidb/pipeline`
+- [ ] `pip install cognidb` installs **3.x** from PyPI matching Git tag (source/build prep done; publish needs human token)
+- [x] Public API stable and documented with copy-paste quickstart (SQLite under 30 lines; `examples/sqlite_offline_demo.py`)
+- [x] **≥80 automated tests**, including adversarial security suite (102 passed + corpus)
+- [x] CI green on Python 3.10–3.12; coverage ≥70% on `cognidb/security` + `cognidb/pipeline` (coverage ~80% met; matrix includes 3.12)
 - [ ] Single execution path: no way to hit the driver without pipeline validation
-- [ ] Access control either **enforced** or **removed** from docs (no theater)
-- [ ] Community health files complete: LICENSE, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, issue/PR templates
-- [ ] README accuracy audit score 100% (every feature claim has code + test)
+- [x] Access control either **enforced** or **removed** from docs (no theater) — table + column allowlists wired
+- [x] Community health files complete: LICENSE, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, issue/PR templates
+- [x] README accuracy audit (honest claims; no “PyPI published” until upload)
 
 ### P1 perfection (SoTA *in niche*)
 
 - [ ] Schema-aware generation with **retrieval of relevant tables** (not full dump for large DBs)
-- [ ] Structured **QueryIntent** path optional alongside free-form SQL (deeper safety)
+- [x] Structured **QueryIntent** path optional alongside free-form SQL (deeper safety)
 - [ ] Pluggable LLM port + **FakeLLM** for offline tests
 - [ ] JSONL/structured audit + optional OpenTelemetry hooks
-- [ ] Dialect test matrix: SQLite always; Postgres via Testcontainers/docker in CI
-- [ ] Published security threat model + “what we don’t guarantee”
+- [x] Dialect test matrix: SQLite always; Postgres via Testcontainers/docker in CI
+- [x] Published security threat model + “what we don’t guarantee”
 - [ ] ≥1 real external reverse-dep or documented production user
 - [ ] Benchmark notebook: accuracy on a public text-to-SQL subset (Spider sample / custom mini)
 

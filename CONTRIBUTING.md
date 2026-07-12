@@ -2,6 +2,8 @@
 
 Thanks for helping improve secure NL→SQL tooling.
 
+Please follow the [Code of Conduct](CODE_OF_CONDUCT.md).
+
 ## Setup
 
 ```bash
