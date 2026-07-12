@@ -91,3 +91,11 @@ _Avoid_: RAG (alone — too generic), search
 **Schema size limit**:
 The maximum amount of schema context that may be sent to the model; beyond it the pipeline must link, truncate by policy, or fail closed rather than silently overstuffing the prompt.
 _Avoid_: token budget (implementation detail in glossary)
+
+**Repair attempt**:
+A single follow-up generation that uses the prior generated statement and the database (or validation) error to produce a revised statement, which must again pass statement policy and access rules before execution.
+_Avoid_: agent loop, retry (unqualified)
+
+**Repair budget**:
+The maximum number of repair attempts per pipeline run. Product default is one.
+_Avoid_: max iterations (implementation-only wording in glossary)
