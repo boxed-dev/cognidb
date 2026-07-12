@@ -5,7 +5,7 @@ Production-oriented natural language to SQL with security-first validation.
 Supported databases today: MySQL, PostgreSQL.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __author__ = "Rishabh Kumar"
 
 from .client import CogniDB, create_cognidb

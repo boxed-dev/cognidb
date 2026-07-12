@@ -1,0 +1,47 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "cognidb"
+version = "2.0.1"
+description = "Secure Natural Language Database Interface"
+readme = "Readme.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+authors = [{ name = "Rishabh Kumar", email = "rishabh.vaaiv@gmail.com" }]
+keywords = ["database", "sql", "nl2sql", "llm", "security", "nlp"]
+classifiers = [
+  "Development Status :: 4 - Beta",
+  "License :: OSI Approved :: MIT License",
+  "Programming Language :: Python :: 3",
+  "Topic :: Database",
+]
+dependencies = [
+  "sqlparse>=0.4.4",
+  "pyyaml>=6.0.1",
+  "python-dotenv>=1.0.0",
+  "mysql-connector-python>=8.0.33",
+  "psycopg2-binary>=2.9.9",
+  "openai>=1.0.0",
+  "anthropic>=0.8.0",
+  "cryptography>=41.0.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.4.0", "pytest-cov>=4.1.0", "pytest-mock>=3.11.0"]
+redis = ["redis>=5.0.0"]
+mongo = ["pymongo>=4.6.0"]
+
+[project.urls]
+Homepage = "https://github.com/boxed-dev/cognidb"
+Repository = "https://github.com/boxed-dev/cognidb"
+Issues = "https://github.com/boxed-dev/cognidb/issues"
+
+[tool.setuptools.packages.find]
+include = ["cognidb*"]
+exclude = ["tests*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]

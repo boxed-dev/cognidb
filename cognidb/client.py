@@ -5,7 +5,7 @@ A production-ready natural language to SQL interface with comprehensive
 security, multi-database support, and intelligent query generation.
 """
 
-__version__ = "2.0.0"
+__version__ = "2.0.1"
 __author__ = "CogniDB Team"
 
 import logging
@@ -20,7 +20,9 @@ from .ai import LLMManager, QueryGenerator
 from .drivers import (
     MySQLDriver,
     PostgreSQLDriver,
+    SQLiteDriver,
 )
+from .pipeline import SecureQueryPipeline
 
 # Setup logging
 logging.basicConfig(
@@ -36,7 +38,7 @@ class CogniDB:
     
     Features:
     - Natural language to SQL conversion
-    - Multi-database support (MySQL, PostgreSQL; more planned)
+    - Multi-database support (MySQL, PostgreSQL, SQLite; more planned)
     - Comprehensive security validation
     - Query optimization and caching
     - Cost tracking and limits
@@ -71,6 +73,21 @@ class CogniDB:
         
         # Cache schema
         self.schema = self.driver.fetch_schema()
+
+        # Deep secure pipeline (single path for NL→SQL→execute)
+        audit_path = getattr(self.settings.security, "audit_log_path", None)
+        self.pipeline = SecureQueryPipeline(
+            driver=self.driver,
+            generator=self.query_generator,
+            validator=self.security_validator,
+            sanitizer=self.input_sanitizer,
+            schema=self.schema,
+            access_controller=self.access_controller,
+            enable_access_control=self.settings.security.enable_access_control,
+            few_shot_examples=self.settings.llm.few_shot_examples,
+            audit_path=audit_path,
+            enable_audit=self.settings.security.enable_audit_logging,
+        )
         
         logger.info("CogniDB initialized successfully")
     
@@ -79,7 +96,7 @@ class CogniDB:
               user_id: Optional[str] = None,
               explain: bool = False) -> Dict[str, Any]:
         """
-        Execute a natural language query.
+        Execute a natural language query through the secure pipeline.
         
         Args:
             natural_language_query: Query in natural language
@@ -89,64 +106,12 @@ class CogniDB:
         Returns:
             Dictionary with results and metadata
         """
-        try:
-            # Sanitize input
-            sanitized_query = self.input_sanitizer.sanitize_natural_language(
-                natural_language_query
-            )
-            
-            # Check access permissions
-            if self.settings.security.enable_access_control and user_id:
-                # This would integrate with your access control system
-                pass
-            
-            # Generate SQL from natural language
-            sql_query = self.query_generator.generate_sql(
-                sanitized_query,
-                self.schema,
-                examples=self.settings.llm.few_shot_examples
-            )
-            
-            # Validate generated SQL
-            is_valid, error = self.security_validator.validate_native_query(sql_query)
-            if not is_valid:
-                raise CogniDBError(f"Security validation failed: {error}")
-            
-            # Execute query
-            results = self.driver.execute_native_query(sql_query)
-            
-            # Prepare response
-            response = {
-                'success': True,
-                'query': natural_language_query,
-                'sql': sql_query,
-                'results': results,
-                'row_count': len(results),
-                'execution_time': None  # Would be tracked by driver
-            }
-            
-            # Add explanation if requested
-            if explain:
-                response['explanation'] = self.query_generator.explain_query(
-                    sql_query,
-                    self.schema
-                )
-            
-            # Log query for audit
-            self._audit_log(user_id, natural_language_query, sql_query, True)
-            
-            return response
-            
-        except Exception as e:
-            logger.error(f"Query execution failed: {str(e)}")
-            self._audit_log(user_id, natural_language_query, None, False, str(e))
-            
-            return {
-                'success': False,
-                'query': natural_language_query,
-                'error': str(e)
-            }
-    
+        return self.pipeline.run(
+            natural_language_query,
+            user_id=user_id,
+            explain=explain,
+        ).to_dict()
+
     def optimize_query(self, sql_query: str) -> Dict[str, Any]:
         """
         Get optimization suggestions for a SQL query.
@@ -240,6 +205,7 @@ class CogniDB:
         driver_map = {
             DatabaseType.MYSQL: MySQLDriver,
             DatabaseType.POSTGRESQL: PostgreSQLDriver,
+            DatabaseType.SQLITE: SQLiteDriver,
         }
         
         db_type = self.settings.database.type
@@ -247,8 +213,8 @@ class CogniDB:
         if not driver_class:
             raise CogniDBError(
                 f"Unsupported database type: {db_type}. "
-                f"Supported: MySQL, PostgreSQL. "
-                f"(MongoDB/DynamoDB/SQLite planned.)"
+                f"Supported: MySQL, PostgreSQL, SQLite. "
+                f"(MongoDB/DynamoDB planned.)"
             )
         
         # Convert settings to driver config
@@ -263,6 +229,9 @@ class CogniDB:
             'max_result_size': self.settings.database.max_result_size,
             **self.settings.database.options
         }
+        if db_type == DatabaseType.SQLITE:
+            # SQLite uses database/path field only
+            driver_config['database'] = self.settings.database.database or ':memory:'
         
         self.driver = driver_class(driver_config)
     

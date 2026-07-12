@@ -8,7 +8,7 @@ long_description = (this_directory / "Readme.md").read_text(encoding="utf-8")
 
 setup(
     name="cognidb",
-    version="2.0.0",
+    version="2.0.1",
     author="Rishabh Kumar",
     author_email="rishabh.vaaiv@gmail.com",
     description="Secure Natural Language Database Interface",

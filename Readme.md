@@ -13,7 +13,7 @@ A secure, production-ready natural language database interface that empowers use
 - <b>🔍 Intelligent SQL Generation</b>: Context-aware query generation with schema understanding<br>
 - <b>🛡️ Enterprise Security</b>: Multi-layer security validation and sanitization<br>
 - <b>🚀 High Performance</b>: Query caching, connection pooling, and optimization<br>
-- <b>📊 Multi-Database Support</b>: MySQL, PostgreSQL (MongoDB/DynamoDB/SQLite planned)<br>
+- <b>📊 Multi-Database Support</b>: MySQL, PostgreSQL, SQLite (MongoDB/DynamoDB planned)<br>
 - <b>💰 Cost Control</b>: LLM usage tracking with configurable limits<br>
 - <b>📈 Query Optimization</b>: AI-powered query performance suggestions
 
