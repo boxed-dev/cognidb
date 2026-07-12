@@ -17,13 +17,21 @@ The free-text input from a library consumer (or their end user) that describes t
 _Avoid_: prompt (alone), chat message, utterance
 
 **Generated statement**:
-The SQL (or dialect SQL) produced from a natural-language question before or after validation.
+The SQL (or dialect SQL) produced from a natural-language question and checked against statement policy before execution.
 _Avoid_: query (alone — overloaded), command, script
 
 **Secure query pipeline**:
-The single path that sanitizes input, obtains a generated statement, validates it, optionally applies access rules, executes it, and records an audit event.
+The single path that sanitizes input, obtains a generated statement, validates it under statement policy, optionally applies access rules, executes it, and records an audit event.
 _Avoid_: agent loop, chat session, workflow engine
 
-**Read-oriented access** *(provisional — confirm in later grill)*:
-The intended default mode of execution: retrieving data without mutating schema or rows, pending a hard statement-policy decision.
-_Avoid_: "fully secure", injection-proof
+**Statement policy**:
+The rules that decide whether a generated statement may be executed (allowed operations, multi-statement rules, and mode).
+_Avoid_: security level, permission (when meaning policy)
+
+**Read mode**:
+The default statement policy: only read-oriented statements (SELECT and read-only WITH/CTE forms) may execute. Mutations and DDL are rejected.
+_Avoid_: safe mode, production mode
+
+**Write mode**:
+An explicit opt-in statement policy that allows mutating operations beyond read mode. Enabled deliberately by the library consumer; never the default.
+_Avoid_: admin mode, full access, unsafe mode (as the official name)
