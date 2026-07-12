@@ -79,3 +79,15 @@ _Avoid_: plan (unqualified), AST mode
 **Query intent**:
 A structured description of a read or write operation (targets, projections, filters, aggregations, etc.) independent of SQL dialect syntax.
 _Avoid_: prompt, plan blob
+
+**Schema context**:
+The subset of database structure (tables, columns, types, relationships as available) provided to generation for a single pipeline run.
+_Avoid_: full database, metadata dump (unqualified)
+
+**Schema linking**:
+Selecting which tables (and related objects) belong in schema context for a natural-language question.
+_Avoid_: RAG (alone — too generic), search
+
+**Schema size limit**:
+The maximum amount of schema context that may be sent to the model; beyond it the pipeline must link, truncate by policy, or fail closed rather than silently overstuffing the prompt.
+_Avoid_: token budget (implementation detail in glossary)
