@@ -51,3 +51,19 @@ _Avoid_: batch (unqualified), script
 **Multi-statement batch**:
 More than one SQL statement in a single pipeline run. Forbidden in read mode. In write mode, only if the library consumer enables an additional explicit opt-in (separate from write mode itself).
 _Avoid_: transaction script (as free NL batching)
+
+**Caller identity**:
+An opaque identifier supplied by the library consumer for the human or system on whose behalf a pipeline run executes (for allowlists, audit, and future row rules).
+_Avoid_: user (unqualified), session, principal (unless documenting auth systems)
+
+**Table allowlist**:
+The set of tables a caller identity may reference in a generated statement. Enforced by the secure query pipeline when access control is enabled.
+_Avoid_: schema filter (vague)
+
+**Column allowlist**:
+The set of columns a caller identity may reference within allowed tables. Enforced with the table allowlist when access control is enabled.
+_Avoid_: field mask (alone)
+
+**Row predicate hook**:
+An extension point that may inject or require row-level filter predicates for a caller identity. Designed as a seam for a later release; not required for the v2 allowlist milestone.
+_Avoid_: RLS (as if already fully shipped)
