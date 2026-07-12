@@ -99,3 +99,11 @@ _Avoid_: agent loop, retry (unqualified)
 **Repair budget**:
 The maximum number of repair attempts per pipeline run. Product default is one.
 _Avoid_: max iterations (implementation-only wording in glossary)
+
+**Supported dialect (v2 major line)**:
+PostgreSQL, MySQL, and SQLite as first-class SQL dialects with drivers, docs, and tests. Other systems are out of scope until this line is solid.
+_Avoid_: any database, NoSQL (as equal peers in this line)
+
+**Audit event**:
+A structured record of a pipeline run (caller identity, mode flags, natural-language question summary, statement, success/failure, timing) written for later review.
+_Avoid_: log line (unqualified)
