@@ -89,27 +89,26 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 | Multi-statement double opt-in | Policy module + tests |
 | DDL blocked | Pipeline + validator |
 | Table allowlist enforcement | AccessController wired when enabled |
+| Column allowlist enforcement | `check_column_access` + extractor; `SELECT *` fail-closed when allowlist set |
+| Intent mode (`generation_mode="intent"`) | `cognidb/intent/renderer.py` + pipeline path |
 | Schema linking | `cognidb/schema/linking.py` |
-| One repair attempt | Pipeline |
-| SQLite / MySQL / Postgres drivers | SQLite fully testable offline |
-| `FakeSQLGenerator` | Offline tests |
-| CI workflow | `.github/workflows/ci.yml` |
-| Tests | **22 passing** (security + unit) |
-| Docs | ROADMAP, CONTEXT, ADRs, CHANGELOG, GRILL-SUMMARY |
+| One repair attempt | Pipeline (+ SQLite E2E repair test) |
+| SQLite / MySQL / Postgres drivers | SQLite offline E2E; Postgres CI job |
+| `FakeSQLGenerator` (+ intent) | Offline tests |
+| Adversarial SQL corpus | 36 payloads in `tests/security/corpus/` |
+| Threat model | `docs/threat-model.md` + SECURITY.md link |
+| CI workflow | `.github/workflows/ci.yml` (+ `postgres-integration`) |
+| Tests | **102 passing**, 1 skipped (Postgres without URL) |
+| Docs | ROADMAP, CONTEXT, ADRs, CHANGELOG, GRILL-SUMMARY, threat-model |
 
 ## Gaps (do not pretend these are done)
 
 | Gap | Why it matters | TDD status |
 |---|---|---|
-| **Intent mode end-to-end** | ADR 0006; free-form only in pipeline today | **Not done** — primary next TDD epic |
-| **Column allowlist enforcement** | Tables checked; columns partial | Incomplete |
-| **Postgres CI integration** | Production reference dialect | Missing service job |
-| **PyPI 3.0.0 publish** | Registry still historical 0.2.x vs Git 3.0.0 | Release engineering |
-| **Adversarial SQL corpus ≥50** | SoTA security credibility | Thin today |
-| **Deterministic intent → SQL renderer** | High-assurance path | Missing as deep module |
+| **PyPI 3.0.0 publish** | Registry still historical 0.2.x vs Git 3.0.0; **release prep done** (build/docs/checklist) — upload is human | Epic 6 — publish only |
+| **Adversarial corpus depth** | 44 payloads; tautology variants blocked; still short of aspirational ≥50 | Epic 3 follow-up (depth, not the named tautology holes) |
 | **Row predicate hook interface** | ADR 0005 seam | Not designed as stable port yet |
-| **Threat model doc** | Honest non-goals | Missing dedicated doc |
-| **Real dependents / external PRs** | Grant + ecosystem | Growth work |
+| **Real dependents / external PRs** | Grant + ecosystem | Epic 7 growth work |
 
 ---
 
@@ -140,14 +139,16 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 ## Epic 0 — Baseline lock (done when green)
 
 - [x] Policy + pipeline major tests (22)  
-- [ ] Add `tests/conftest.py` shared fixtures (FakeSQLGenerator, memory SQLite)  
-- [ ] Coverage gate on `cognidb/security` + `cognidb/pipeline` (fail &lt; 70%)
+- [x] Add `tests/conftest.py` shared fixtures (FakeSQLGenerator, memory SQLite)  
+- [x] Coverage gate on `cognidb/security` + `cognidb/pipeline` (fail &lt; 70%; ~80% line coverage as of merge)
 
 ## Epic 1 — Intent mode (highest product leverage)
 
 **Goal:** `generation_mode="intent"` produces SQL only via deterministic renderer after structured intent.
 
 ### Slice 1.1 — Renderer pure function (S6)
+
+- [x] `render_sql(QueryIntent)` → exact SQL (`tests/unit/test_intent_renderer.py`)
 
 | | |
 |---|---|
@@ -158,12 +159,16 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 
 ### Slice 1.2 — Renderer rejects DDL-shaped intents
 
+- [x] Forbidden / non-SELECT intent types fail closed in renderer
+
 | | |
 |---|---|
 | **RED** | intent with forbidden type fails with clear error |
 | **GREEN** | renderer only knows SELECT (and later DML if write mode) |
 
 ### Slice 1.3 — Pipeline intent mode
+
+- [x] `SecureQueryPipeline(..., generation_mode="intent")` → intent → `render_sql` → enforce → execute
 
 | | |
 |---|---|
@@ -173,6 +178,8 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 
 ### Slice 1.4 — Intent + write mode
 
+- [x] Intent INSERT rejected in read mode; allowed in write mode
+
 | | |
 |---|---|
 | **RED** | intent INSERT only succeeds when write mode on |
@@ -181,6 +188,8 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 ## Epic 2 — Column allowlists (S3)
 
 ### Slice 2.1
+
+- [x] Column allowlist deny + `SELECT *` fail-closed when allowlist set (`tests/unit/test_column_allowlist.py`)
 
 | | |
 |---|---|
@@ -192,6 +201,8 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 
 ### Slice 3.1
 
+- [x] ≥30 adversarial payloads fail closed in read mode (36 in corpus; SLEEP/comment hardening)
+
 | | |
 |---|---|
 | **RED** | `tests/security/corpus/test_adversarial_sql.py` loads JSON of ≥30 payloads; each must fail in read mode |
@@ -202,12 +213,16 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 
 ### Slice 4.1
 
+- [x] Full SQLite: create tables → FakeSQLGenerator → pipeline run → assert rows (`tests/integration/test_sqlite_e2e.py` + `examples/sqlite_offline_demo.py`)
+
 | | |
 |---|---|
 | **RED** | Full SQLite: create tables → FakeSQLGenerator → pipeline run → assert rows |
 | **GREEN** | Example + test `tests/integration/test_sqlite_e2e.py` |
 
 ### Slice 4.2
+
+- [x] Repair path with real SQLite error then success (`test_sqlite_e2e_repair_after_real_column_error`)
 
 | | |
 |---|---|
@@ -217,6 +232,8 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 ## Epic 5 — Postgres CI (S5)
 
 ### Slice 5.1
+
+- [x] Postgres integration skipped without `DATABASE_URL` / `COGNIDB_PG_URL`; GHA `postgres-integration` job with `postgres:16`
 
 | | |
 |---|---|
@@ -231,6 +248,17 @@ Full glossary: [`CONTEXT.md`](../CONTEXT.md)
 |---|---|
 | **Checklist** | CHANGELOG final, tag `v3.0.0` (exists), GitHub Release notes, **PyPI upload** |
 | **Verify** | `pip install cognidb==3.0.0` from clean venv imports + runs SQLite example |
+
+**Prep vs publish (honest):**
+
+- [x] CHANGELOG accurate for 3.0.0 go-live contents
+- [x] Version **3.0.0** consistent (`pyproject` / `cognidb.__version__` / client)
+- [x] README honest + offline SQLite quickstart matching real API
+- [x] `python -m build` + `twine check` clean locally
+- [x] Offline example (`examples/sqlite_offline_demo.py`) + `docs/RELEASE-CHECKLIST.md`
+- [x] Community health: LICENSE, SECURITY, CONTRIBUTING, CODE_OF_CONDUCT, issue/PR templates
+- [ ] GitHub Release notes published for `v3.0.0` (human)
+- [ ] **PyPI upload** of 3.0.0 (human + token; do not claim published until registry shows it)
 
 ## Epic 7 — Growth (not TDD code; tracked)
 
@@ -384,8 +412,8 @@ Anthropic pulls GitHub + package registry + dependency graph data.
 - [ ] Pin **cognidb** #1 on GitHub profile  
 - [ ] Bio: “Maintainer of CogniDB — secure NL→SQL”  
 - [ ] Confirm GitHub email inbox for activation  
-- [ ] Optional: GitHub Release notes for `v3.0.0`  
-- [ ] Optional: PyPI 3.0.0 so metrics match Git  
+- [ ] Optional: GitHub Release notes for `v3.0.0` (prep done; publish is human)  
+- [ ] Optional: PyPI 3.0.0 so metrics match Git (prep done; upload needs token)  
 - [ ] **Apply once** — do not spam resubmit  
 
 ## F7. Ready-to-paste application text

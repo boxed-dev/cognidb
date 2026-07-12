@@ -1,8 +1,11 @@
 """
-Basic usage examples for CogniDB.
+Basic usage examples for CogniDB (high-level client).
 
-This demonstrates how to use CogniDB for natural language database queries
-with various configurations and features.
+Requires a live database and LLM API credentials — not offline.
+
+For a no-network demo, run::
+
+    python examples/sqlite_offline_demo.py
 """
 
 import os

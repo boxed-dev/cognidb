@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cognidb"
-version = "3.0.0"
+version = "3.0.1"
 description = "Secure Natural Language Database Interface"
 readme = "Readme.md"
 requires-python = ">=3.9"
@@ -45,3 +45,21 @@ exclude = ["tests*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+
+# Coverage gate (Epic 0):
+#   pytest --cov=cognidb.security --cov=cognidb.pipeline --cov-fail-under=70
+# Line coverage (not branch) so Protocol stubs / legacy helpers do not tank the gate.
+[tool.coverage.run]
+branch = false
+source = ["cognidb/security", "cognidb/pipeline"]
+omit = ["*/tests/*"]
+
+[tool.coverage.report]
+fail_under = 70
+show_missing = true
+skip_empty = true
+exclude_lines = [
+  "pragma: no cover",
+  "if TYPE_CHECKING:",
+  "raise NotImplementedError",
+]

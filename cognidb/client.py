@@ -5,7 +5,7 @@ A production-ready natural language to SQL interface with comprehensive
 security, multi-database support, and intelligent query generation.
 """
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 __author__ = "CogniDB Team"
 
 import logging

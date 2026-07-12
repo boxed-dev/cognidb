@@ -2,10 +2,10 @@
 CogniDB - Secure Natural Language Database Interface
 
 Production-oriented natural language to SQL with security-first validation.
-Supported databases today: MySQL, PostgreSQL.
+Supported databases today: MySQL, PostgreSQL, SQLite.
 """
 
-__version__ = "3.0.0"
+__version__ = "3.0.1"
 __author__ = "Rishabh Kumar"
 
 from .client import CogniDB, create_cognidb

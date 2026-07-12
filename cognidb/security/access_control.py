@@ -113,21 +113,29 @@ class AccessController:
     def check_column_access(self, user_id: str, table: str, columns: List[str]) -> None:
         """
         Check if user can access columns.
-        
+
+        Fail closed: SELECT * (column ``*``) is denied when a column allowlist
+        is set for the table (ADR 0005).
+
         Raises:
             SecurityError: If access denied
         """
         permissions = self.get_user_permissions(user_id)
-        
+
         if not permissions.can_access_table(table):
             raise SecurityError(f"Access denied to table: {table}")
-        
+
         if permissions.is_admin:
             return
-        
+
         if table in permissions.table_permissions:
             table_perm = permissions.table_permissions[table]
             for column in columns:
+                if column == "*" and table_perm.allowed_columns is not None:
+                    raise SecurityError(
+                        f"Access denied: SELECT * not allowed when column "
+                        f"allowlist is set for table: {table}"
+                    )
                 if not table_perm.can_access_column(column):
                     raise SecurityError(f"Access denied to column: {table}.{column}")
     

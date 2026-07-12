@@ -25,15 +25,24 @@ class QuerySecurityValidator(SecurityValidator):
         'GRANT', 'REVOKE', 'EXECUTE', 'EXEC', 'CALL', 'MERGE', 'LOCK', 'UNLOCK',
     }
     
-    # Patterns that might indicate SQL injection
+    # Patterns that might indicate SQL injection.
+    # Boolean tautologies: fail-closed on OR/AND of literal-vs-literal
+    # comparisons (OR 2=2, OR 'a'='a') and OR/AND TRUE. Legitimate filters
+    # use column references (WHERE status = 1 OR active = 1) and are allowed.
     SQL_INJECTION_PATTERNS = [
         r';\s*--',  # Statement termination followed by comment
         r';\s*\/\*',  # Statement termination followed by comment
         r'UNION\s+SELECT',  # UNION-based injection
-        r'OR\s+1\s*=\s*1',  # Classic SQL injection
-        r'OR\s+\'1\'\s*=\s*\'1\'',  # Classic SQL injection with quotes
+        # Literal-vs-literal tautologies (any digits / quoted strings, not just 1=1)
+        r'(?:OR|AND)\s+\d+\s*=\s*\d+',
+        r"(?:OR|AND)\s+'[^']*'\s*=\s*'[^']*'",
+        r'(?:OR|AND)\s+TRUE\b',
+        r'(?:OR|AND)\s*\(\s*\d+\s*=\s*\d+\s*\)',
+        r"(?:OR|AND)\s*\(\s*'[^']*'\s*=\s*'[^']*'\s*\)",
+        r'(?:OR|AND)\s*\(\s*TRUE\s*\)',
         r'WAITFOR\s+DELAY',  # Time-based injection
         r'BENCHMARK\s*\(',  # MySQL time-based injection
+        r'SLEEP\s*\(',  # MySQL time-based injection
         r'PG_SLEEP\s*\(',  # PostgreSQL time-based injection
         r'LOAD_FILE\s*\(',  # File system access
         r'INTO\s+OUTFILE',  # File system write
@@ -131,17 +140,21 @@ class QuerySecurityValidator(SecurityValidator):
         2. SQL injection pattern matching
         3. Query parsing and analysis
         """
-        # Normalize query for analysis
+        # Normalize query for analysis (strip comments so -- / /**/ cannot
+        # obfuscate injection tokens like OR/**/1=1 or OR--\n1=1).
         normalized_query = query.upper().strip()
+        scan_query = re.sub(r'/\*.*?\*/', ' ', normalized_query, flags=re.DOTALL)
+        scan_query = re.sub(r'--[^\n]*', ' ', scan_query)
+        scan_query = re.sub(r'\s+', ' ', scan_query).strip()
         
         # Check for forbidden keywords
         for keyword in self.FORBIDDEN_KEYWORDS:
             if re.search(rf'\b{keyword}\b', normalized_query):
                 return False, f"Forbidden keyword detected: {keyword}"
         
-        # Check for SQL injection patterns
+        # Check for SQL injection patterns (on comment-normalized text)
         for pattern in self.SQL_INJECTION_PATTERNS:
-            if re.search(pattern, normalized_query, re.IGNORECASE):
+            if re.search(pattern, scan_query, re.IGNORECASE):
                 return False, f"Potential SQL injection pattern detected"
         
         # Parse and validate query structure

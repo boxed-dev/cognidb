@@ -6,6 +6,7 @@ from .query_parser import SQLQueryParser
 from .access_control import AccessController, Permission, TablePermissions, UserPermissions
 from .statement_policy import StatementMode, StatementPolicy
 from .table_extractor import extract_tables, extract_primary_operation
+from .column_extractor import extract_columns, extract_columns_by_table
 
 __all__ = [
     "QuerySecurityValidator",
@@ -19,4 +20,6 @@ __all__ = [
     "StatementPolicy",
     "extract_tables",
     "extract_primary_operation",
+    "extract_columns",
+    "extract_columns_by_table",
 ]

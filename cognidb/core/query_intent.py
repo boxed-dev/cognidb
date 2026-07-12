@@ -11,6 +11,8 @@ class QueryType(Enum):
     AGGREGATE = auto()
     COUNT = auto()
     DISTINCT = auto()
+    # Write-mode DML (ADR 0003); never default — pipeline + policy gate execution
+    INSERT = auto()
 
 
 class ComparisonOperator(Enum):
@@ -145,6 +147,8 @@ class QueryIntent:
     limit: Optional[int] = None
     offset: Optional[int] = None
     distinct: bool = False
+    # INSERT payload: dict keyed by column name, or ordered sequence matching columns
+    values: Optional[Any] = None
     
     # Metadata for optimization and caching
     natural_language_query: Optional[str] = None
@@ -156,6 +160,13 @@ class QueryIntent:
         if not self.tables:
             raise ValueError("At least one table must be specified")
         
+        if self.query_type == QueryType.INSERT:
+            if not self.columns or any(c.name == "*" for c in self.columns):
+                raise ValueError("INSERT intent requires explicit columns")
+            if self.values is None:
+                raise ValueError("INSERT intent requires values")
+            return
+
         if self.query_type == QueryType.SELECT and not self.columns:
             # Default to all columns if none specified
             self.columns = [Column("*")]
