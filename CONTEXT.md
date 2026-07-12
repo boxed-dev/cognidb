@@ -33,5 +33,13 @@ The default statement policy: only read-oriented statements (SELECT and read-onl
 _Avoid_: safe mode, production mode
 
 **Write mode**:
-An explicit opt-in statement policy that allows mutating operations beyond read mode. Enabled deliberately by the library consumer; never the default.
+An explicit opt-in statement policy that allows row-mutating DML (INSERT, UPDATE, DELETE) in addition to read mode statements. Never the default.
 _Avoid_: admin mode, full access, unsafe mode (as the official name)
+
+**DDL**:
+Schema-changing statements (CREATE, ALTER, DROP, TRUNCATE, and similar). Out of scope for both read mode and write mode; rejected by statement policy.
+_Avoid_: migration (as a CogniDB feature)
+
+**Defense in depth**:
+The combination of statement policy, least-privilege database grants, and audit events. No single layer is treated as sufficient.
+_Avoid_: "secure by default" as a claim without naming the layers
