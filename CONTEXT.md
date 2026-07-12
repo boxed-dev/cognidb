@@ -67,3 +67,15 @@ _Avoid_: field mask (alone)
 **Row predicate hook**:
 An extension point that may inject or require row-level filter predicates for a caller identity. Designed as a seam for a later release; not required for the v2 allowlist milestone.
 _Avoid_: RLS (as if already fully shipped)
+
+**Free-form generation**:
+The generation path where the model produces a SQL string that is then checked by statement policy and access rules.
+_Avoid_: raw mode (in user docs prefer "free-form")
+
+**Intent generation**:
+The generation path where the model produces a structured query intent that a deterministic renderer turns into SQL before the same policy and access checks.
+_Avoid_: plan (unqualified), AST mode
+
+**Query intent**:
+A structured description of a read or write operation (targets, projections, filters, aggregations, etc.) independent of SQL dialect syntax.
+_Avoid_: prompt, plan blob
