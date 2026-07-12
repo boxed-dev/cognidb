@@ -5,13 +5,15 @@ from .prompt_builder import PromptBuilder
 from .query_generator import QueryGenerator
 from .cost_tracker import CostTracker
 from .providers import OpenAIProvider, AnthropicProvider, AzureOpenAIProvider
+from .fake_generator import FakeSQLGenerator
 
 __all__ = [
-    'LLMManager',
-    'PromptBuilder',
-    'QueryGenerator',
-    'CostTracker',
-    'OpenAIProvider',
-    'AnthropicProvider',
-    'AzureOpenAIProvider'
+    "LLMManager",
+    "PromptBuilder",
+    "QueryGenerator",
+    "CostTracker",
+    "OpenAIProvider",
+    "AnthropicProvider",
+    "AzureOpenAIProvider",
+    "FakeSQLGenerator",
 ]

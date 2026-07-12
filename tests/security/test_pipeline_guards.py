@@ -38,13 +38,13 @@ def _pipe(sql: str) -> SecureQueryPipeline:
 def test_blocks_drop():
     r = _pipe("DROP TABLE users").run("destroy users")
     assert r.success is False
-    assert "Security validation" in (r.error or "") or "Forbidden" in (r.error or "")
+    assert any(x in (r.error or "") for x in ("Security validation", "Forbidden", "DROP", "not allowed"))
 
 
 def test_blocks_multi_statement():
     r = _pipe("SELECT 1; DROP TABLE users").run("two statements")
     assert r.success is False
-    assert "Multiple" in (r.error or "")
+    assert "Multiple" in (r.error or "") or "multi" in (r.error or "").lower()
 
 
 def test_allows_select_and_executes_once():

@@ -1,3 +1,43 @@
+# CogniDB 3.0
+
+**Secure natural-language SQL for applications** — a Python **library**, not a chat product.
+
+Default: **read mode** (SELECT only) → validate → optional table allowlists → execute → audit.  
+Opt-in: **write mode** (INSERT/UPDATE/DELETE), schema linking, one repair attempt, intent mode (roadmap).
+
+```bash
+pip install -e ".[dev]"   # or: pip install cognidb  (when 3.0 is on PyPI)
+pytest -q
+```
+
+```python
+from cognidb.drivers import SQLiteDriver
+from cognidb.pipeline import SecureQueryPipeline
+from cognidb.security import QuerySecurityValidator, InputSanitizer, StatementPolicy, StatementMode
+from cognidb.ai.fake_generator import FakeSQLGenerator
+
+drv = SQLiteDriver({"database": ":memory:"})
+drv.connect()
+drv.execute_native_query("CREATE TABLE users (id INTEGER, name TEXT)")
+drv.execute_native_query("INSERT INTO users VALUES (1, 'Ada')")
+
+pipe = SecureQueryPipeline(
+    driver=drv,
+    generator=FakeSQLGenerator("SELECT id, name FROM users"),
+    validator=QuerySecurityValidator(),
+    sanitizer=InputSanitizer(),
+    schema=drv.fetch_schema(),
+    policy=StatementPolicy(mode=StatementMode.READ),
+    enable_audit=False,
+)
+print(pipe.run("list users").to_dict())
+drv.disconnect()
+```
+
+Supported dialects: **SQLite, PostgreSQL, MySQL**. See [CONTEXT.md](CONTEXT.md), [docs/GRILL-SUMMARY.md](docs/GRILL-SUMMARY.md), [ROADMAP.md](ROADMAP.md).
+
+---
+
 # <i><b>`CogniDB`</b></i>
 
 A secure, production-ready natural language database interface that empowers users to query databases using plain English while maintaining enterprise-grade security and performance.<br>

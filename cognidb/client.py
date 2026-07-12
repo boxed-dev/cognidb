@@ -23,6 +23,7 @@ from .drivers import (
     SQLiteDriver,
 )
 from .pipeline import SecureQueryPipeline
+from .security.statement_policy import StatementMode, StatementPolicy
 
 # Setup logging
 logging.basicConfig(
@@ -75,7 +76,14 @@ class CogniDB:
         self.schema = self.driver.fetch_schema()
 
         # Deep secure pipeline (single path for NL→SQL→execute)
-        audit_path = getattr(self.settings.security, "audit_log_path", None)
+        sec = self.settings.security
+        mode = StatementMode.READ if sec.allow_only_select else StatementMode.WRITE
+        # Second opt-in: multi-statement only valid with write mode
+        allow_ms = bool(sec.allow_multi_statement) and mode == StatementMode.WRITE
+        policy = StatementPolicy(mode=mode, allow_multi_statement=allow_ms)
+        # Align validator with mode
+        self.security_validator.allowed_operations = list(policy.allowed_operations)
+        audit_path = getattr(sec, "audit_log_path", None)
         self.pipeline = SecureQueryPipeline(
             driver=self.driver,
             generator=self.query_generator,
@@ -83,10 +91,15 @@ class CogniDB:
             sanitizer=self.input_sanitizer,
             schema=self.schema,
             access_controller=self.access_controller,
-            enable_access_control=self.settings.security.enable_access_control,
+            enable_access_control=sec.enable_access_control,
             few_shot_examples=self.settings.llm.few_shot_examples,
             audit_path=audit_path,
-            enable_audit=self.settings.security.enable_audit_logging,
+            enable_audit=sec.enable_audit_logging,
+            policy=policy,
+            enable_schema_linking=sec.enable_schema_linking,
+            schema_top_k=sec.schema_top_k,
+            max_schema_tables=sec.max_schema_tables,
+            repair_budget=sec.repair_budget,
         )
         
         logger.info("CogniDB initialized successfully")

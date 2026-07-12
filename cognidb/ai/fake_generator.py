@@ -1,0 +1,30 @@
+"""Deterministic SQL generator for offline tests (no network)."""
+
+from __future__ import annotations
+
+from typing import Any, Dict, Optional
+
+
+class FakeSQLGenerator:
+    """Returns canned SQL; supports a simple repair rewrite."""
+
+    def __init__(self, sql: str, *, repair_sql: Optional[str] = None):
+        self.sql = sql
+        self.repair_sql = repair_sql
+        self.calls = 0
+        self.repair_calls = 0
+
+    def generate_sql(
+        self, natural_language: str, schema: Dict[str, Any], examples: Any = None
+    ) -> str:
+        self.calls += 1
+        return self.sql
+
+    def explain_query(self, sql: str, schema: Dict[str, Any]) -> str:
+        return f"Fake explanation for: {sql}"
+
+    def repair_sql_with_error(
+        self, sql: str, error: str, schema: Dict[str, Any]
+    ) -> str:
+        self.repair_calls += 1
+        return self.repair_sql if self.repair_sql is not None else sql

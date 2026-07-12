@@ -19,11 +19,10 @@ class QuerySecurityValidator(SecurityValidator):
     4. Value sanitization
     """
     
-    # Dangerous SQL keywords that should never appear
+    # Always-forbidden (DDL / admin). DML is gated by allowed_operations (read vs write mode).
     FORBIDDEN_KEYWORDS = {
-        'DROP', 'DELETE', 'TRUNCATE', 'UPDATE', 'INSERT', 'ALTER',
-        'CREATE', 'REPLACE', 'RENAME', 'GRANT', 'REVOKE', 'EXECUTE',
-        'EXEC', 'CALL', 'MERGE', 'LOCK', 'UNLOCK'
+        'DROP', 'TRUNCATE', 'ALTER', 'CREATE', 'REPLACE', 'RENAME',
+        'GRANT', 'REVOKE', 'EXECUTE', 'EXEC', 'CALL', 'MERGE', 'LOCK', 'UNLOCK',
     }
     
     # Patterns that might indicate SQL injection
@@ -68,6 +67,10 @@ class QuerySecurityValidator(SecurityValidator):
     def allowed_operations(self) -> List[str]:
         """List of allowed query operations."""
         return self._allowed_operations
+
+    @allowed_operations.setter
+    def allowed_operations(self, value: List[str]) -> None:
+        self._allowed_operations = list(value)
     
     def validate_query_intent(self, query_intent: QueryIntent) -> Tuple[bool, Optional[str]]:
         """
