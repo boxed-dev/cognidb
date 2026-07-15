@@ -2,7 +2,7 @@
 
 **Status:** accepted
 
-Under an explicit mandate to ship a perfect major library release, the following decisions are frozen together:
+For the 3.x major line, the following decisions are frozen together:
 
 1. Library-only product (ADR 0001)
 2. Read mode default; write mode opt-in DML only; no DDL (0002–0003)

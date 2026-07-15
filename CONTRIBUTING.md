@@ -27,3 +27,7 @@ pytest
 - Docs/examples for PostgreSQL and MySQL
 - SQLite driver for local demos
 - CI improvements
+
+## Releasing
+
+Maintainers: bump version in `pyproject.toml` and `cognidb/__init__.py`, update `CHANGELOG.md`, tag `vX.Y.Z`, then `python -m build && twine check dist/*` and upload with a PyPI API token.

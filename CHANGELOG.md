@@ -1,10 +1,10 @@
 # Changelog
 
-## 3.0.1 — go-live readiness
+## 3.0.1
 
 Intent mode, column allowlists, adversarial corpus, SQLite E2E, Postgres CI,
 threat model, and release packaging on top of the 3.0.0 library core.
-Install from Git until PyPI upload completes (see `docs/RELEASE-CHECKLIST.md`).
+Install from Git until `cognidb==3.0.1` is available on PyPI.
 
 ### Security / product law
 - **Read mode** default (SELECT); **write mode** opt-in for INSERT/UPDATE/DELETE only
@@ -28,8 +28,8 @@ Install from Git until PyPI upload completes (see `docs/RELEASE-CHECKLIST.md`).
 - Offline demo: `examples/sqlite_offline_demo.py`
 
 ### Docs / community
-- CONTEXT.md glossary, ADRs 0001–0010, GRILL-SUMMARY, ROADMAP
-- Release checklist, CONTRIBUTING, CODE_OF_CONDUCT, GitHub issue/PR templates
+- CONTEXT.md glossary, ADRs 0001–0010, ROADMAP, threat model
+- CONTRIBUTING, CODE_OF_CONDUCT, GitHub issue/PR templates
 
 ## 3.0.0 — secure library core
 
