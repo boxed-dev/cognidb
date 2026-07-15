@@ -1,8 +1,8 @@
 # CogniDB 3.0.1 release checklist
 
-Prep can be completed without credentials. **Publishing to PyPI and creating the GitHub Release require a human with tokens.**
+Prep can be completed without credentials. **GitHub Release `v3.0.1` is published.** Publishing to PyPI still requires a human with a token.
 
-Do **not** claim PyPI 3.0.1 is live until `pip index versions cognidb` (or the PyPI project page) shows `3.0.0`.
+Do **not** claim PyPI 3.0.1 is live until `pip index versions cognidb` (or the PyPI project page) shows `3.0.1`.
 
 ## 0. Preflight (local, no secrets)
 

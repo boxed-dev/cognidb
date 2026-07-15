@@ -4,7 +4,7 @@
 
 > CogniDB turns natural language into **SELECT-oriented SQL** against PostgreSQL, MySQL, and SQLite. Security is the product: sanitize → generate → validate → allowlists → execute → audit.
 
-**Status:** Git / source release **3.0.1** is ready to install from this repo. PyPI may still show older historical versions until a maintainer uploads — see [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md). Prefer `pip install -e .` from a clone until `cognidb==3.0.0` appears on PyPI.
+**Status:** Git / source release **3.0.1** is ready to install from this repo ([GitHub Release](https://github.com/boxed-dev/cognidb/releases/tag/v3.0.1)). PyPI may still show older historical versions until a maintainer uploads — see [docs/RELEASE-CHECKLIST.md](docs/RELEASE-CHECKLIST.md). Prefer `pip install -e .` from a clone until `cognidb==3.0.1` appears on PyPI.
 
 Default: **read mode** (SELECT only) → validate → optional table/column allowlists → execute → audit.  
 Opt-in: **write mode** (INSERT/UPDATE/DELETE), schema linking, one repair attempt, **intent mode** (`generation_mode="intent"`).
