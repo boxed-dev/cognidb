@@ -25,6 +25,18 @@ pip install -e ".[dev]"
 pytest -q
 ```
 
+### Offline benchmarks
+
+```bash
+# Full suite (no network / no API keys)
+python -m benchmarks.run --track all
+
+# CI smoke subset (also covered by tests/benchmarks/)
+python -m benchmarks.run --track all --smoke --fail-under 1.0
+```
+
+See [`benchmarks/README.md`](benchmarks/README.md) for metrics, case formats, and **what is not claimed** (no competitor SoTA without comparative data).
+
 ## Quick start (offline SQLite, under 30 lines)
 
 No network LLM — uses `FakeSQLGenerator` with canned SQL:
@@ -79,6 +91,7 @@ with CogniDB(config_file="cognidb.yaml") as db:
 | Allowlists | Table + column access control when enabled |
 | Intent mode | Opt-in structured `QueryIntent` → deterministic SQL render |
 | Offline testing | `FakeSQLGenerator` / `FakeIntentGenerator` |
+| Benchmarks | Offline multi-track suite under [`benchmarks/`](benchmarks/) (correctness, security, policy, robustness) |
 | LLM providers | OpenAI, Anthropic, Azure OpenAI; HuggingFace/local need extra deps |
 | Docs | [SECURITY.md](SECURITY.md), [docs/threat-model.md](docs/threat-model.md), [CHANGELOG.md](CHANGELOG.md), [ROADMAP.md](ROADMAP.md) |
 

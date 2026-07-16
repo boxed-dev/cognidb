@@ -14,7 +14,7 @@ CogniDB stays a **security-first NL→SQL library** — depth in the validation 
 - Row-level policy hooks (caller context → forced predicates)
 - Async / streaming query API
 - First-class adapter for a popular agent framework (one path, done well)
-- Public mini-benchmark on a curated text-to-SQL sample
+- Live-LLM correctness track (`COGNIDB_BENCH_LIVE=1`) and optional competitor adapters (see `benchmarks/comparative.py`)
 
 ## Non-goals
 

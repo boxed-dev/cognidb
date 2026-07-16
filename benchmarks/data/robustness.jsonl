@@ -1,0 +1,18 @@
+{"id": "rob-link-large-80", "kind": "schema_link", "n_tables": 80, "max_schema_tables": 40, "schema_top_k": 8, "question": "list customers and their orders", "expect_strategy": "linked_or_truncated", "expect_max_tables": 40}
+{"id": "rob-link-large-200", "kind": "schema_link", "n_tables": 200, "max_schema_tables": 40, "schema_top_k": 5, "question": "show products", "expect_max_tables": 40}
+{"id": "rob-link-hit-customers", "kind": "schema_link", "n_tables": 100, "max_schema_tables": 40, "question": "customers email country", "expect_strategy": "linked_or_truncated", "expect_max_tables": 40}
+{"id": "rob-soak-25", "kind": "soak", "n_runs": 25, "sql": "SELECT id, name FROM customers ORDER BY id"}
+{"id": "rob-soak-10-orders", "kind": "soak", "n_runs": 10, "sql": "SELECT COUNT(*) AS n FROM orders"}
+{"id": "rob-latency-01", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 1", "expect_success": true}
+{"id": "rob-latency-02", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 2", "expect_success": true}
+{"id": "rob-latency-03", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 3", "expect_success": true}
+{"id": "rob-latency-04", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 4", "expect_success": true}
+{"id": "rob-latency-05", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 5", "expect_success": true}
+{"id": "rob-latency-06", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 6", "expect_success": true}
+{"id": "rob-latency-07", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 7", "expect_success": true}
+{"id": "rob-latency-08", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 8", "expect_success": true}
+{"id": "rob-latency-09", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 9", "expect_success": true}
+{"id": "rob-latency-10", "kind": "pipeline", "sql": "SELECT id, name, email FROM customers WHERE country = 'US' ORDER BY id", "question": "latency probe 10", "expect_success": true}
+{"id": "rob-pipeline-join", "kind": "pipeline", "sql": "SELECT o.id, c.name FROM orders o JOIN customers c ON c.id = o.customer_id ORDER BY o.id", "question": "join latency", "expect_success": true}
+{"id": "rob-pipeline-agg", "kind": "pipeline", "sql": "SELECT status, COUNT(*) AS n FROM orders GROUP BY status", "question": "agg latency", "expect_success": true}
+{"id": "rob-schema-max-small", "kind": "schema_link", "n_tables": 10, "max_schema_tables": 5, "question": "zzzz no match tokens xyzabc", "expect_max_tables": 5}
