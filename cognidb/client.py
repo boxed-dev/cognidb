@@ -6,7 +6,7 @@ security, multi-database support, and intelligent query generation.
 """
 
 __version__ = "3.0.1"
-__author__ = "CogniDB Team"
+__author__ = "Rishabh Kumar"
 
 import logging
 from typing import Dict, Any, Optional, List, Union
