@@ -18,6 +18,8 @@ logger = logging.getLogger(__name__)
 class SQLiteDriver(BaseDriver):
     """SQLite adapter for CogniDB (file or :memory:)."""
 
+    dialect = "sqlite"
+
     def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         # Accept database path via database/path/host keys

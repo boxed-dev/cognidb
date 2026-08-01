@@ -20,7 +20,7 @@ logger = logging.getLogger(__name__)
 class PostgreSQLDriver(BaseDriver):
     """
     PostgreSQL database driver with security enhancements.
-    
+
     Features:
     - Connection pooling with pgbouncer support
     - Parameterized queries with proper escaping
@@ -30,6 +30,8 @@ class PostgreSQLDriver(BaseDriver):
     - EXPLAIN ANALYZE integration
     """
     
+    dialect = "postgres"
+
     def __init__(self, config: dict[str, Any]):
         """Initialize PostgreSQL driver."""
         super().__init__(config)
