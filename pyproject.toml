@@ -23,20 +23,49 @@ classifiers = [
 ]
 dependencies = [
   "sqlglot>=25.0.0",
-  "sqlparse>=0.4.4",
   "pyyaml>=6.0.1",
-  "python-dotenv>=1.0.0",
-  "mysql-connector-python>=8.0.33",
-  "psycopg2-binary>=2.9.9",
-  "openai>=1.0.0",
-  "anthropic>=0.8.0",
   "cryptography>=41.0.0",
 ]
 
 [project.optional-dependencies]
-dev = ["pytest>=7.4.0", "pytest-cov>=4.1.0", "pytest-mock>=3.11.0"]
-redis = ["redis>=5.0.0"]
-mongo = ["pymongo>=4.6.0"]
+# Native DB connectors: the drivers are imported lazily (PEP 562) by
+# cognidb.drivers, so the core install stays light and each backend is pulled
+# in only via its extra.
+postgres = ["psycopg2-binary>=2.9.9"]
+mysql = ["mysql-connector-python>=8.0.33"]
+# LLM providers: each is imported lazily inside its provider class, so the
+# core package works without any of them installed.
+openai = ["openai>=1.0.0"]
+anthropic = ["anthropic>=0.8.0"]
+huggingface = ["transformers>=4.35.0", "torch>=2.0.0"]
+local = ["llama-cpp-python>=0.2.0"]
+# Secrets-manager backends: each is imported lazily by cognidb.config.secrets.
+aws = ["boto3>=1.28.0"]
+vault = ["hvac>=1.2.0"]
+azure = ["azure-identity>=1.14.0", "azure-keyvault-secrets>=4.7.0"]
+all = [
+  "psycopg2-binary>=2.9.9",
+  "mysql-connector-python>=8.0.33",
+  "openai>=1.0.0",
+  "anthropic>=0.8.0",
+  "transformers>=4.35.0",
+  "torch>=2.0.0",
+  "llama-cpp-python>=0.2.0",
+  "boto3>=1.28.0",
+  "hvac>=1.2.0",
+  "azure-identity>=1.14.0",
+  "azure-keyvault-secrets>=4.7.0",
+]
+# dev installs both connectors (driver tests) and sqlparse (benchmark harness's
+# normalize_sql/tokenizer — dev tooling only; nothing shipped imports it).
+dev = [
+  "pytest>=7.4.0",
+  "pytest-cov>=4.1.0",
+  "pytest-mock>=3.11.0",
+  "psycopg2-binary>=2.9.9",
+  "mysql-connector-python>=8.0.33",
+  "sqlparse>=0.4.4",
+]
 
 # PEP 735 dependency groups for the CI tool gates (installable with
 # `pip install --group lint --group typing --group security`).
@@ -57,6 +86,9 @@ exclude = ["tests*"]
 [tool.pytest.ini_options]
 testpaths = ["tests"]
 pythonpath = ["."]
+markers = [
+  "integration: requires a real database service (Postgres/MySQL); skipped without connection env vars",
+]
 
 # Coverage: the whole package is reported for visibility, but the CI GATE is
 # scoped to the security-critical, offline-testable surface at 80% (see ci.yml).

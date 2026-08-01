@@ -26,6 +26,8 @@ class MySQLDriver(BaseDriver):
     - Automatic reconnection
     """
     
+    dialect = "mysql"
+
     def __init__(self, config: dict[str, Any]):
         """Initialize MySQL driver."""
         super().__init__(config)

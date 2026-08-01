@@ -18,11 +18,6 @@ from .config import ConfigLoader, DatabaseType
 
 # Core imports
 from .core.exceptions import CogniDBError
-from .drivers import (
-    MySQLDriver,
-    PostgreSQLDriver,
-    SQLiteDriver,
-)
 from .pipeline import SecureQueryPipeline
 from .security import AccessController, InputSanitizer, QuerySecurityValidator
 from .security.statement_policy import StatementMode, StatementPolicy
@@ -102,6 +97,10 @@ class CogniDB:
             schema_top_k=sec.schema_top_k,
             max_schema_tables=sec.max_schema_tables,
             repair_budget=sec.repair_budget,
+            # Secure default: LLM emits a structured intent → parameterized render.
+            # Dialect is auto-inferred from the driver. Free-form raw SQL is not
+            # exposed through the high-level client.
+            generation_mode="intent",
         )
         
         logger.info("CogniDB initialized successfully")
@@ -216,21 +215,29 @@ class CogniDB:
     # Private methods
     
     def _init_driver(self):
-        """Initialize database driver."""
-        driver_map = {
-            DatabaseType.MYSQL: MySQLDriver,
-            DatabaseType.POSTGRESQL: PostgreSQLDriver,
-            DatabaseType.SQLITE: SQLiteDriver,
-        }
-        
+        """Initialize database driver.
+
+        The driver class is imported lazily by type so that a SQLite (or
+        Postgres, or MySQL) deployment only pulls in the one native connector it
+        actually needs — see ``cognidb.drivers`` for the extras mapping.
+        """
         db_type = self.settings.database.type
-        driver_class = driver_map.get(db_type)
-        if not driver_class:
+        # Import only the matching driver so a SQLite deployment never needs the
+        # psycopg2 / mysql-connector native packages installed (and vice versa).
+        import cognidb.drivers as drivers
+
+        driver_attr = {
+            DatabaseType.MYSQL: "MySQLDriver",
+            DatabaseType.POSTGRESQL: "PostgreSQLDriver",
+            DatabaseType.SQLITE: "SQLiteDriver",
+        }.get(db_type)
+        if not driver_attr:
             raise CogniDBError(
                 f"Unsupported database type: {db_type}. "
                 f"Supported: MySQL, PostgreSQL, SQLite. "
                 f"(MongoDB/DynamoDB planned.)"
             )
+        driver_class = getattr(drivers, driver_attr)
         
         # Convert settings to driver config
         driver_config = {

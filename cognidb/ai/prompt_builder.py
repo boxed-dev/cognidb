@@ -105,6 +105,32 @@ SQL Query:"""
         
         return prompt
     
+    def build_intent_generation_prompt(self,
+                                       natural_language_query: str,
+                                       schema: dict[str, dict[str, str]],
+                                       examples: list[dict[str, str]] | None = None) -> str:
+        """Build a prompt asking the LLM for a structured JSON QueryIntent.
+
+        The response is deserialized by ``cognidb.ai.intent_schema`` and rendered
+        deterministically with bound parameters — the model never emits raw SQL.
+        """
+        from .intent_schema import INTENT_JSON_CONTRACT
+
+        schema_desc = self._build_schema_description(schema)
+        examples_section = self._build_examples_section(examples) if examples else ""
+
+        return f"""You translate a natural-language request into a structured query intent \
+for a {self.database_type} database. You do NOT write SQL.
+
+Database Schema:
+{schema_desc}
+{examples_section}
+{INTENT_JSON_CONTRACT}
+
+User Query: {natural_language_query}
+
+JSON intent:"""
+
     def build_query_explanation_prompt(self,
                                      sql_query: str,
                                      schema: dict[str, dict[str, str]]) -> str:

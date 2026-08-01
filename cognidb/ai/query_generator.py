@@ -6,8 +6,9 @@ import re
 from typing import Any
 
 from ..core.exceptions import TranslationError
-from ..core.query_intent import Column, QueryIntent, QueryType
+from ..core.query_intent import QueryIntent
 from ..security.sanitizer import InputSanitizer
+from .intent_schema import intent_from_json
 from .llm_manager import LLMManager
 from .prompt_builder import PromptBuilder
 
@@ -84,24 +85,27 @@ class QueryGenerator:
         except Exception as e:
             raise TranslationError(f"Failed to generate SQL: {str(e)}") from e
     
-    def parse_to_intent(self,
+    def generate_intent(self,
                        natural_language_query: str,
-                       schema: dict[str, dict[str, str]]) -> QueryIntent:
+                       schema: dict[str, dict[str, str]],
+                       examples: list[dict[str, str]] | None = None) -> QueryIntent:
+        """Generate a structured QueryIntent from natural language (intent mode).
+
+        The LLM emits a JSON intent (never raw SQL); it is deserialized fail-closed
+        and later rendered with bound parameters. This is the secure default path.
+
+        Raises:
+            TranslationError: If generation or intent parsing fails.
         """
-        Parse natural language to QueryIntent.
-        
-        Args:
-            natural_language_query: User's query
-            schema: Database schema
-            
-        Returns:
-            Parsed QueryIntent
-        """
-        # First generate SQL
-        sql_query = self.generate_sql(natural_language_query, schema)
-        
-        # Then parse SQL to QueryIntent
-        return self._parse_sql_to_intent(sql_query, schema)
+        sanitized_query = self.sanitizer.sanitize_natural_language(natural_language_query)
+        prompt = self.prompt_builder.build_intent_generation_prompt(
+            sanitized_query, schema, examples
+        )
+        try:
+            response = self.llm_manager.generate(prompt)
+            return intent_from_json(response.content)
+        except Exception as e:
+            raise TranslationError(f"Failed to generate query intent: {e}") from e
     
     def explain_query(self,
                      sql_query: str,
@@ -267,45 +271,3 @@ Suggestions:"""
         valid_starts = ['SELECT', 'WITH', 'SHOW', 'DESCRIBE', 'EXPLAIN']
         
         return any(sql_upper.strip().startswith(start) for start in valid_starts)
-    
-    def _parse_sql_to_intent(
-        self, sql_query: str, schema: dict[str, dict[str, str]]
-    ) -> QueryIntent:
-        """
-        Parse SQL query to QueryIntent (simplified version).
-        
-        This is a basic implementation. In production, you'd want
-        a full SQL parser.
-        """
-        # Extract tables (basic regex approach)
-        tables = []
-        from_match = re.search(r'FROM\s+(\w+)', sql_query, re.IGNORECASE)
-        if from_match:
-            tables.append(from_match.group(1))
-        
-        # Extract columns (basic approach)
-        columns = []
-        select_match = re.search(r'SELECT\s+(.*?)\s+FROM', sql_query, re.IGNORECASE | re.DOTALL)
-        if select_match:
-            column_str = select_match.group(1)
-            if column_str.strip() == '*':
-                columns = [Column('*')]
-            else:
-                # Simple split by comma (doesn't handle complex cases)
-                for col in column_str.split(','):
-                    col = col.strip()
-                    if ' AS ' in col.upper():
-                        parts = re.split(r'\s+AS\s+', col, flags=re.IGNORECASE)
-                        columns.append(Column(parts[0].strip(), alias=parts[1].strip()))
-                    else:
-                        columns.append(Column(col))
-        
-        # Create basic QueryIntent
-        intent = QueryIntent(
-            query_type=QueryType.SELECT,
-            tables=tables,
-            columns=columns,
-            natural_language_query=sql_query
-        )
-        
-        return intent
