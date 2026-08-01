@@ -74,6 +74,7 @@ jobs:
           cognidb/security/sql_guard.py
           cognidb/intent/renderer.py
           cognidb/pipeline/secure_query.py
+          cognidb/ai/intent_schema.py
       - name: Bandit (static security scan)
         run: bandit -rq -ll cognidb/
       - name: pip-audit (dependency advisories)
