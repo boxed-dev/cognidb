@@ -13,3 +13,12 @@ def test_drivers_expose_dialect():
 
 def test_pipeline_infers_dialect_from_driver():
     assert _infer_dialect(SQLiteDriver({"database": ":memory:"})) == "sqlite"
+
+
+def test_postgres_pool_submodule_is_imported():
+    # `import psycopg2` does not bind psycopg2.pool; connect() references the
+    # pool module, so a missing `from psycopg2 import pool` regresses only
+    # against a live server. Catch it here with no DB.
+    from cognidb.drivers import postgres_driver
+
+    assert hasattr(postgres_driver.pool, "ThreadedConnectionPool")

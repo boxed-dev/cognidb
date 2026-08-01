@@ -7,8 +7,7 @@ import time
 import uuid
 from typing import Any
 
-import psycopg2
-from psycopg2 import DatabaseError, OperationalError, extras, sql
+from psycopg2 import DatabaseError, OperationalError, extras, pool, sql
 from psycopg2.extensions import ISOLATION_LEVEL_READ_COMMITTED
 
 from ..core.exceptions import ConnectionError, ExecutionError
@@ -78,7 +77,7 @@ class PostgreSQLDriver(BaseDriver):
             conn_params = self._connect_params()
 
             # Create connection pool
-            self.pool = psycopg2.pool.ThreadedConnectionPool(
+            self.pool = pool.ThreadedConnectionPool(
                 minconn=1,
                 maxconn=self.config.get('pool_size', 5),
                 **conn_params
