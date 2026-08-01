@@ -10,8 +10,9 @@ jobs:
   test:
     runs-on: ubuntu-latest
     strategy:
+      fail-fast: false
       matrix:
-        python-version: ["3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12", "3.13"]
     steps:
       - uses: actions/checkout@v4
       - name: Set up Python
@@ -26,6 +27,59 @@ jobs:
         # Default fast job: unit + security + offline SQLite E2E.
         # Postgres integration skips without DATABASE_URL / COGNIDB_PG_URL.
         run: pytest -q
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+      - name: Full-package coverage report (visibility, non-gating)
+        run: pytest --cov=cognidb --cov-report=term-missing -q
+      - name: Coverage gate (security-critical surface)
+        # Gate on the code that MUST be covered and is testable offline. The
+        # AI-provider / live-DB-driver paths need credentials/servers and are
+        # reported above but not gated here.
+        run: >-
+          pytest -q
+          --cov=cognidb.security --cov=cognidb.pipeline
+          --cov=cognidb.intent --cov=cognidb.core
+          --cov-report=term-missing --cov-fail-under=80
+
+  quality:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        # pip >= 25.1 resolves PEP 735 dependency groups (lint/typing/security).
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+          pip install --group lint --group typing --group security
+      - name: Ruff (lint + import sort + security lints)
+        run: ruff check cognidb/ benchmarks/
+      - name: Mypy (new security-critical modules)
+        run: >-
+          mypy
+          cognidb/security/sql_guard.py
+          cognidb/intent/renderer.py
+          cognidb/pipeline/secure_query.py
+      - name: Bandit (static security scan)
+        run: bandit -rq -ll cognidb/
+      - name: pip-audit (dependency advisories)
+        # Non-blocking: depends on the upstream advisory DB and network.
+        continue-on-error: true
+        run: pip-audit
 
   postgres-integration:
     runs-on: ubuntu-latest
