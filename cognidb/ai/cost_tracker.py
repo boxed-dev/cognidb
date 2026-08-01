@@ -1,11 +1,12 @@
 """Cost tracking for LLM usage."""
 
-import time
-from datetime import datetime, timedelta
-from typing import Dict, Any, List, Optional
-from collections import defaultdict
+from __future__ import annotations
+
 import json
+from collections import defaultdict
+from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 
 class CostTracker:
@@ -21,7 +22,7 @@ class CostTracker:
     
     def __init__(self, 
                  max_daily_cost: float = 100.0,
-                 storage_path: Optional[str] = None):
+                 storage_path: str | None = None):
         """
         Initialize cost tracker.
         
@@ -47,8 +48,8 @@ class CostTracker:
     
     def track_usage(self, 
                    cost: float,
-                   token_usage: Dict[str, int],
-                   model: Optional[str] = None) -> None:
+                   token_usage: dict[str, int],
+                   model: str | None = None) -> None:
         """
         Track usage for a request.
         
@@ -72,7 +73,7 @@ class CostTracker:
         # Save data
         self._save_usage_data()
     
-    def get_daily_cost(self, date: Optional[str] = None) -> float:
+    def get_daily_cost(self, date: str | None = None) -> float:
         """
         Get cost for a specific day.
         
@@ -111,7 +112,7 @@ class CostTracker:
         """Get total cost across all time."""
         return sum(data.get('cost', 0.0) for data in self.usage_data.values())
     
-    def get_token_usage(self, date: Optional[str] = None) -> Dict[str, int]:
+    def get_token_usage(self, date: str | None = None) -> dict[str, int]:
         """
         Get token usage for a specific day.
         
@@ -130,7 +131,7 @@ class CostTracker:
             'total': 0
         })
     
-    def is_limit_exceeded(self, date: Optional[str] = None) -> bool:
+    def is_limit_exceeded(self, date: str | None = None) -> bool:
         """
         Check if daily cost limit is exceeded.
         
@@ -143,7 +144,7 @@ class CostTracker:
         daily_cost = self.get_daily_cost(date)
         return daily_cost >= self.max_daily_cost
     
-    def get_remaining_budget(self, date: Optional[str] = None) -> float:
+    def get_remaining_budget(self, date: str | None = None) -> float:
         """
         Get remaining budget for the day.
         
@@ -156,7 +157,7 @@ class CostTracker:
         daily_cost = self.get_daily_cost(date)
         return max(0, self.max_daily_cost - daily_cost)
     
-    def get_usage_summary(self, days: int = 7) -> Dict[str, Any]:
+    def get_usage_summary(self, days: int = 7) -> dict[str, Any]:
         """
         Get usage summary for recent days.
         
@@ -292,7 +293,7 @@ class CostTracker:
         """Load usage data from storage."""
         try:
             if Path(self.storage_path).exists():
-                with open(self.storage_path, 'r') as f:
+                with open(self.storage_path) as f:
                     data = json.load(f)
                     # Convert to defaultdict structure
                     for date, usage in data.items():
@@ -301,7 +302,7 @@ class CostTracker:
                             self.usage_data[date]['models'] = defaultdict(
                                 int, usage['models']
                             )
-        except Exception:
+        except Exception:  # noqa: S110 - best-effort cache load; a corrupt/absent file falls back to empty
             # If loading fails, start fresh
             pass
     
@@ -323,6 +324,6 @@ class CostTracker:
             
             with open(self.storage_path, 'w') as f:
                 json.dump(data_to_save, f, indent=2)
-        except Exception:
+        except Exception:  # noqa: S110 - best-effort persistence must never fail the caller's request
             # Log error but don't fail the request
             pass

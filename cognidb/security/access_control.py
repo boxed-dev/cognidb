@@ -1,8 +1,11 @@
 """Access control and permissions management."""
 
-from typing import Any, Dict, List, Set, Optional
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum, auto
+from typing import Any
+
 from ..core.exceptions import SecurityError
 
 
@@ -22,9 +25,9 @@ class Permission(Enum):
 class TablePermissions:
     """Permissions for a specific table."""
     table_name: str
-    allowed_operations: Set[Permission] = field(default_factory=set)
-    allowed_columns: Optional[Set[str]] = None  # None means all columns
-    row_filter: Optional[str] = None  # SQL condition for row-level security
+    allowed_operations: set[Permission] = field(default_factory=set)
+    allowed_columns: set[str] | None = None  # None means all columns
+    row_filter: str | None = None  # SQL condition for row-level security
     
     def can_access_column(self, column: str) -> bool:
         """Check if column access is allowed."""
@@ -42,11 +45,11 @@ class UserPermissions:
     """User's database permissions."""
     user_id: str
     is_admin: bool = False
-    table_permissions: Dict[str, TablePermissions] = field(default_factory=dict)
-    global_permissions: Set[Permission] = field(default_factory=set)
+    table_permissions: dict[str, TablePermissions] = field(default_factory=dict)
+    global_permissions: set[Permission] = field(default_factory=set)
     max_rows_per_query: int = 10000
     max_execution_time: int = 30  # seconds
-    allowed_schemas: Set[str] = field(default_factory=set)
+    allowed_schemas: set[str] = field(default_factory=set)
     
     def add_table_permission(self, table_perm: TablePermissions):
         """Add permissions for a table."""
@@ -81,7 +84,7 @@ class AccessController:
     
     def __init__(self):
         """Initialize access controller."""
-        self.users: Dict[str, UserPermissions] = {}
+        self.users: dict[str, UserPermissions] = {}
         self.default_permissions = UserPermissions(
             user_id="default",
             global_permissions={Permission.SELECT},
@@ -97,7 +100,7 @@ class AccessController:
         """Get user permissions or default if not found."""
         return self.users.get(user_id, self.default_permissions)
     
-    def check_table_access(self, user_id: str, tables: List[str]) -> None:
+    def check_table_access(self, user_id: str, tables: list[str]) -> None:
         """
         Check if user can access all tables.
         
@@ -110,7 +113,7 @@ class AccessController:
             if not permissions.can_access_table(table):
                 raise SecurityError(f"Access denied to table: {table}")
     
-    def check_column_access(self, user_id: str, table: str, columns: List[str]) -> None:
+    def check_column_access(self, user_id: str, table: str, columns: list[str]) -> None:
         """
         Check if user can access columns.
 
@@ -139,7 +142,7 @@ class AccessController:
                 if not table_perm.can_access_column(column):
                     raise SecurityError(f"Access denied to column: {table}.{column}")
     
-    def check_operation(self, user_id: str, operation: Permission, tables: List[str]) -> None:
+    def check_operation(self, user_id: str, operation: Permission, tables: list[str]) -> None:
         """
         Check if user can perform operation.
         
@@ -159,7 +162,7 @@ class AccessController:
                     f"Operation {operation.name} not allowed on table: {table}"
                 )
     
-    def get_row_filters(self, user_id: str, table: str) -> Optional[str]:
+    def get_row_filters(self, user_id: str, table: str) -> str | None:
         """Get row-level security filters for table."""
         permissions = self.get_user_permissions(user_id)
         
@@ -171,7 +174,7 @@ class AccessController:
         
         return None
     
-    def get_resource_limits(self, user_id: str) -> Dict[str, int]:
+    def get_resource_limits(self, user_id: str) -> dict[str, int]:
         """Get resource limits for user."""
         permissions = self.get_user_permissions(user_id)
         
@@ -180,7 +183,7 @@ class AccessController:
             'max_execution_time': permissions.max_execution_time
         }
     
-    def create_read_only_user(self, user_id: str, allowed_tables: List[str]) -> UserPermissions:
+    def create_read_only_user(self, user_id: str, allowed_tables: list[str]) -> UserPermissions:
         """Create a read-only user with access to specific tables."""
         user = UserPermissions(
             user_id=user_id,
@@ -202,7 +205,7 @@ class AccessController:
     
     def create_restricted_user(self, 
                              user_id: str,
-                             table_permissions_dict: Dict[str, Dict[str, Any]]) -> UserPermissions:
+                             table_permissions_dict: dict[str, dict[str, Any]]) -> UserPermissions:
         """
         Create user with specific table permissions.
         

@@ -4,7 +4,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from enum import Enum
-from typing import FrozenSet, Optional, Tuple
 
 
 class StatementMode(str, Enum):
@@ -12,10 +11,10 @@ class StatementMode(str, Enum):
     WRITE = "write"
 
 
-READ_OPS: FrozenSet[str] = frozenset({"SELECT"})
-WRITE_OPS: FrozenSet[str] = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
+READ_OPS: frozenset[str] = frozenset({"SELECT"})
+WRITE_OPS: frozenset[str] = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE"})
 # DDL and admin always forbidden in library policy
-FORBIDDEN_ALWAYS: FrozenSet[str] = frozenset({
+FORBIDDEN_ALWAYS: frozenset[str] = frozenset({
     "DROP", "CREATE", "ALTER", "TRUNCATE", "GRANT", "REVOKE",
     "REPLACE", "RENAME", "MERGE", "CALL", "EXEC", "EXECUTE",
 })
@@ -35,10 +34,10 @@ class StatementPolicy:
             )
 
     @property
-    def allowed_operations(self) -> FrozenSet[str]:
+    def allowed_operations(self) -> frozenset[str]:
         return WRITE_OPS if self.mode == StatementMode.WRITE else READ_OPS
 
-    def check_multi_statement(self, sql: str) -> Tuple[bool, Optional[str]]:
+    def check_multi_statement(self, sql: str) -> tuple[bool, str | None]:
         if _is_multi_statement(sql):
             if self.mode == StatementMode.READ:
                 return False, "Multiple SQL statements are not allowed in read mode"

@@ -1,6 +1,8 @@
 # Hybrid generation: free-form default, intent mode opt-in
 
-**Status:** accepted
+**Status:** superseded by 4.0.0 — intent mode is now the DEFAULT and free-form
+is opt-in behind `allow_dangerous_sql=True` (it cannot be parameterized). See the
+4.0.0 entry in `CHANGELOG.md`. The rest of this record is retained for history.
 
 v2 keeps **free-form generation** (LLM → SQL string → validate → execute) as the default path for compatibility and speed of delivery. We also ship **intent generation** as an explicit opt-in: LLM → query intent → deterministic SQL renderer → same policy and access checks. Documentation should steer high-assurance consumers toward intent mode over time.
 

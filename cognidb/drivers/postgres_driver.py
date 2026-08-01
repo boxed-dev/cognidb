@@ -1,13 +1,18 @@
 """Secure PostgreSQL driver implementation."""
 
-import time
+from __future__ import annotations
+
 import logging
-from typing import Dict, List, Any, Optional
+import time
+import uuid
+from typing import Any
+
 import psycopg2
-from psycopg2 import pool, sql, extras, OperationalError, DatabaseError
+from psycopg2 import DatabaseError, OperationalError, extras, sql
 from psycopg2.extensions import ISOLATION_LEVEL_READ_COMMITTED
-from .base_driver import BaseDriver
+
 from ..core.exceptions import ConnectionError, ExecutionError
+from .base_driver import BaseDriver
 
 logger = logging.getLogger(__name__)
 
@@ -25,37 +30,51 @@ class PostgreSQLDriver(BaseDriver):
     - EXPLAIN ANALYZE integration
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """Initialize PostgreSQL driver."""
         super().__init__(config)
         self.pool = None
         self._prepared_statements = {}
         
+    def _connect_params(self) -> dict[str, Any]:
+        """Assemble psycopg2 connect kwargs with TLS and timeouts enforced.
+
+        TLS defaults to ``sslmode=verify-full`` (full hostname + chain
+        verification) and is *never* silently downgraded — a caller must set an
+        explicit ``sslmode`` in config to relax it. ``statement_timeout`` is
+        pushed server-side via the ``options`` startup parameter.
+        """
+        query_timeout = self.config.get('query_timeout', 30)
+        params: dict[str, Any] = {
+            'host': self.config.get('host'),
+            'port': self.config.get('port', 5432),
+            'database': self.config.get('database'),
+            'user': self.config.get('username'),
+            'password': self.config.get('password'),
+            'connect_timeout': self.config.get('connection_timeout', 10),
+            'application_name': 'CogniDB',
+            'options': f"-c statement_timeout={query_timeout}s",
+            # Fail closed on TLS: full verification unless explicitly overridden.
+            'sslmode': self.config.get('sslmode', 'verify-full'),
+        }
+
+        # Root CA — accept the new `sslrootcert` key and the legacy
+        # `ssl_ca_cert` alias; either wires the trust anchor (no downgrade).
+        sslrootcert = self.config.get('sslrootcert') or self.config.get('ssl_ca_cert')
+        if sslrootcert:
+            params['sslrootcert'] = sslrootcert
+        if self.config.get('ssl_client_cert'):
+            params['sslcert'] = self.config['ssl_client_cert']
+        if self.config.get('ssl_client_key'):
+            params['sslkey'] = self.config['ssl_client_key']
+
+        return params
+
     def connect(self) -> None:
         """Establish connection to PostgreSQL database."""
         try:
-            # Prepare connection config
-            conn_params = {
-                'host': self.config['host'],
-                'port': self.config.get('port', 5432),
-                'database': self.config['database'],
-                'user': self.config.get('username'),
-                'password': self.config.get('password'),
-                'connect_timeout': self.config.get('connection_timeout', 10),
-                'application_name': 'CogniDB',
-                'options': f"-c statement_timeout={self.config.get('query_timeout', 30)}s"
-            }
-            
-            # SSL configuration
-            if self.config.get('ssl_enabled', True):
-                conn_params['sslmode'] = 'require'
-                if self.config.get('ssl_ca_cert'):
-                    conn_params['sslrootcert'] = self.config['ssl_ca_cert']
-                if self.config.get('ssl_client_cert'):
-                    conn_params['sslcert'] = self.config['ssl_client_cert']
-                if self.config.get('ssl_client_key'):
-                    conn_params['sslkey'] = self.config['ssl_client_key']
-            
+            conn_params = self._connect_params()
+
             # Create connection pool
             self.pool = psycopg2.pool.ThreadedConnectionPool(
                 minconn=1,
@@ -80,7 +99,7 @@ class PostgreSQLDriver(BaseDriver):
             
         except (OperationalError, DatabaseError) as e:
             logger.error(f"PostgreSQL connection failed: {str(e)}")
-            raise ConnectionError(f"Failed to connect to PostgreSQL: {str(e)}")
+            raise ConnectionError(f"Failed to connect to PostgreSQL: {str(e)}") from e
     
     def disconnect(self) -> None:
         """Close the database connection."""
@@ -91,7 +110,7 @@ class PostgreSQLDriver(BaseDriver):
                     try:
                         with self.connection.cursor() as cursor:
                             cursor.execute(f"DEALLOCATE {stmt_name}")
-                    except Exception:
+                    except Exception:  # noqa: S110 - best-effort prepared-statement cleanup on disconnect
                         pass
                 
                 self._prepared_statements.clear()
@@ -124,58 +143,77 @@ class PostgreSQLDriver(BaseDriver):
         if self.connection and self.pool:
             self.pool.putconn(self.connection)
     
-    def _execute_with_timeout(self, 
-                            query: str, 
-                            params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
-        """Execute query with timeout and proper parameterization."""
+    def _execute_with_timeout(self,
+                            query: str,
+                            params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
+        """Execute a query, streaming row-returning results to the cap.
+
+        Row-returning statements run through a *server-side named cursor* so the
+        backend holds the result set and we pull it incrementally with
+        ``fetchmany(cap + 1)`` — this kills the ``fetchall()``-then-slice DoS at
+        the fetch, not the slice. Non-row-returning statements use an ordinary
+        client cursor and report ``affected_rows``.
+        """
         cursor = None
-        
+        max_results = int(self.config.get('max_result_size', 10000))
+
         try:
             # Ensure we have a valid connection
             if not self.connection or self.connection.closed:
                 self.connection = self._create_connection()
-            
-            # Create cursor with RealDictCursor for dict results
+
+            if self._returns_rows(query):
+                # Server-side (named) cursor: the result set never fully
+                # materialises client-side.
+                name = f"cognidb_ss_{uuid.uuid4().hex}"
+                cursor = self.connection.cursor(
+                    name=name, cursor_factory=extras.RealDictCursor
+                )
+                cursor.itersize = max_results
+                if params is not None:
+                    cursor.execute(query, params)
+                else:
+                    cursor.execute(query)
+
+                # Pull one past the cap so truncation is detectable, never more.
+                rows = cursor.fetchmany(max_results + 1)
+                if len(rows) > max_results:
+                    logger.warning(
+                        "Result truncated to max_result_size=%d rows", max_results
+                    )
+                    rows = rows[:max_results]
+                return [dict(row) for row in rows]
+
+            # Non-row-returning: ordinary client cursor + affected-row count.
             cursor = self.connection.cursor(cursor_factory=extras.RealDictCursor)
-            
-            # Execute query with parameters
-            if params:
-                # Use psycopg2's parameter substitution
+            if params is not None:
                 cursor.execute(query, params)
             else:
                 cursor.execute(query)
-            
-            # Handle results
-            if cursor.description:
-                results = cursor.fetchall()
-                
-                # Convert RealDictRow to regular dict
-                results = [dict(row) for row in results]
-                
-                # Apply result size limit
-                max_results = self.config.get('max_result_size', 10000)
-                if len(results) > max_results:
-                    logger.warning(f"Result truncated from {len(results)} to {max_results} rows")
-                    results = results[:max_results]
-                
-                return results
-            else:
-                # For non-SELECT queries
-                self.connection.commit()
-                return [{'affected_rows': cursor.rowcount}]
-            
-        except (OperationalError, DatabaseError) as e:
-            if self.connection:
-                self.connection.rollback()
-            raise ExecutionError(f"Query execution failed: {str(e)}")
+            self.connection.commit()
+            return [{'affected_rows': cursor.rowcount}]
+
+        except Exception as e:
+            try:
+                if self.connection:
+                    self.connection.rollback()
+            except Exception:  # noqa: S110  # pragma: no cover - rollback best-effort
+                pass
+            # Full detail to the driver log only; the caller gets a generic
+            # message so raw DB internals never leak.
+            logger.debug("PostgreSQL execution failed: %s", e, exc_info=True)
+            raise ExecutionError("query execution failed") from e
         finally:
-            if cursor:
-                cursor.close()
+            if cursor is not None:
+                try:
+                    cursor.close()
+                except Exception:  # noqa: S110  # pragma: no cover - cursor close best-effort
+                    pass
     
     def execute_prepared(self, 
                         name: str,
                         query: str,
-                        params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                        params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """Execute a prepared statement for better performance."""
         cursor = None
         
@@ -207,12 +245,12 @@ class PostgreSQLDriver(BaseDriver):
         except Exception as e:
             if self.connection:
                 self.connection.rollback()
-            raise ExecutionError(f"Prepared statement execution failed: {str(e)}")
+            raise ExecutionError(f"Prepared statement execution failed: {str(e)}") from e
         finally:
             if cursor:
                 cursor.close()
     
-    def explain_query(self, query: str, analyze: bool = False) -> Dict[str, Any]:
+    def explain_query(self, query: str, analyze: bool = False) -> dict[str, Any]:
         """Get query execution plan."""
         explain_query = f"EXPLAIN {'ANALYZE' if analyze else ''} {query}"
         
@@ -223,9 +261,9 @@ class PostgreSQLDriver(BaseDriver):
                 'query': query
             }
         except Exception as e:
-            raise ExecutionError(f"Failed to explain query: {str(e)}")
+            raise ExecutionError(f"Failed to explain query: {str(e)}") from e
     
-    def _fetch_schema_impl(self) -> Dict[str, Dict[str, str]]:
+    def _fetch_schema_impl(self) -> dict[str, dict[str, str]]:
         """Fetch PostgreSQL schema using information_schema."""
         query = """
         SELECT 
@@ -293,7 +331,7 @@ class PostgreSQLDriver(BaseDriver):
             if cursor:
                 cursor.close()
     
-    def _fetch_indexes(self, schema: Dict[str, Dict[str, str]], cursor):
+    def _fetch_indexes(self, schema: dict[str, dict[str, str]], cursor):
         """Fetch index information."""
         query = """
         SELECT 
@@ -329,7 +367,7 @@ class PostgreSQLDriver(BaseDriver):
         """Rollback a transaction."""
         self.connection.rollback()
     
-    def _get_driver_info(self) -> Dict[str, Any]:
+    def _get_driver_info(self) -> dict[str, Any]:
         """Get PostgreSQL-specific information."""
         info = {
             'server_version': None,
@@ -356,7 +394,7 @@ class PostgreSQLDriver(BaseDriver):
                 info['current_schema'] = result[2]
                 info['encoding'] = result[3]
                 cursor.close()
-            except Exception:
+            except Exception:  # noqa: S110 - server metadata is optional; absence is non-fatal
                 pass
         
         return info

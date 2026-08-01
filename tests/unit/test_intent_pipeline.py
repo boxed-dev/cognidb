@@ -36,6 +36,8 @@ def _pipe(*, generation_mode="free_form", generator=None, policy=None, drv=None,
         enable_audit=False,
         policy=policy or StatementPolicy(),
         generation_mode=generation_mode,
+        dialect="sqlite",
+        allow_dangerous_sql=True,
         repair_budget=0,
     )
 
@@ -58,9 +60,10 @@ def test_intent_mode_renders_and_executes():
     assert gen.calls == 1
 
 
-def test_free_form_remains_default():
+def test_free_form_available_with_opt_in():
+    # Intent is now the default; free-form is opt-in (allow_dangerous_sql handled in _pipe).
     gen = FakeSQLGenerator("SELECT id FROM users")
-    pipe = _pipe(generator=gen)
+    pipe = _pipe(generation_mode="free_form", generator=gen)
     result = pipe.run("list users")
     assert result.success is True
     assert result.sql == "SELECT id FROM users"
@@ -99,5 +102,5 @@ def test_intent_insert_allowed_in_write_mode():
     ).run("add user Ada")
 
     assert result.success is True
-    assert result.sql == "INSERT INTO users (name) VALUES ('Ada')"
+    assert result.sql == "INSERT INTO users (name) VALUES (?)"  # value bound, not inlined
     assert drv.calls == [result.sql]

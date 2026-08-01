@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any
 
 
 def link_schema(
     natural_language: str,
-    full_schema: Dict[str, Any],
+    full_schema: dict[str, Any],
     *,
     top_k: int = 8,
     max_tables: int = 40,
     enable: bool = True,
-) -> Tuple[Dict[str, Any], str]:
+) -> tuple[dict[str, Any], str]:
     """
     Return (schema_context, strategy) where strategy is
     'linked' | 'full' | 'full_truncated' | 'empty'.
@@ -26,7 +26,7 @@ def link_schema(
         return _bounded(full_schema, max_tables)
 
     tokens = set(re.findall(r"[a-zA-Z_][a-zA-Z0-9_]*", natural_language.lower()))
-    scored: List[Tuple[int, str]] = []
+    scored: list[tuple[int, str]] = []
     for name in table_names:
         n = name.lower()
         score = 0
@@ -38,7 +38,10 @@ def link_schema(
         # column name hits
         cols = full_schema.get(name) or {}
         if isinstance(cols, dict):
-            col_keys = cols.keys() if not _is_nested_columns(cols) else (cols.get("columns") or {}).keys()
+            if _is_nested_columns(cols):
+                col_keys = (cols.get("columns") or {}).keys()
+            else:
+                col_keys = cols.keys()
             for c in col_keys:
                 cl = str(c).lower()
                 if cl in tokens:
@@ -59,7 +62,7 @@ def _is_nested_columns(cols: dict) -> bool:
     return "columns" in cols and isinstance(cols.get("columns"), dict)
 
 
-def _bounded(schema: Dict[str, Any], max_tables: int) -> Tuple[Dict[str, Any], str]:
+def _bounded(schema: dict[str, Any], max_tables: int) -> tuple[dict[str, Any], str]:
     keys = list(schema.keys())
     if len(keys) <= max_tables:
         return dict(schema), "full"

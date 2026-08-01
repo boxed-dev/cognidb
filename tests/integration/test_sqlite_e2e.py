@@ -38,6 +38,8 @@ def _pipeline(driver: SQLiteDriver, generator: FakeSQLGenerator) -> SecureQueryP
         sanitizer=InputSanitizer(),
         schema=driver.fetch_schema(),
         policy=StatementPolicy(mode=StatementMode.READ),
+        generation_mode="free_form",
+        allow_dangerous_sql=True,
         enable_audit=False,
         repair_budget=1,
     )

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import logging
 import sqlite3
+import threading
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from ..core.exceptions import ConnectionError, ExecutionError
 from .base_driver import BaseDriver
@@ -17,7 +18,7 @@ logger = logging.getLogger(__name__)
 class SQLiteDriver(BaseDriver):
     """SQLite adapter for CogniDB (file or :memory:)."""
 
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         super().__init__(config)
         # Accept database path via database/path/host keys
         self.db_path = (
@@ -26,7 +27,7 @@ class SQLiteDriver(BaseDriver):
             or config.get("host")
             or ":memory:"
         )
-        self.connection: Optional[sqlite3.Connection] = None
+        self.connection: sqlite3.Connection | None = None
 
     def connect(self) -> None:
         try:
@@ -57,30 +58,76 @@ class SQLiteDriver(BaseDriver):
         pass
 
     def _execute_with_timeout(
-        self, query: str, params: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]:
+        self, query: str, params: Any | None = None
+    ) -> list[dict[str, Any]]:
         if self.connection is None:
             raise ConnectionError("Not connected to SQLite")
+
+        max_results = int(self.config.get("max_result_size", 10000))
+        timeout = float(self.config.get("query_timeout", 30))
+
+        # sqlite3's connect(timeout=...) is only the busy/lock wait, not an
+        # execution-time bound. A watchdog thread calls connection.interrupt()
+        # after `timeout` seconds so a runaway query (e.g. a huge recursive CTE
+        # or cartesian product) is aborted instead of pinning a core forever.
+        done = threading.Event()
+
+        def _watchdog() -> None:
+            if not done.wait(timeout):
+                conn = self.connection
+                if conn is not None:
+                    try:
+                        conn.interrupt()
+                    except Exception:  # noqa: S110  # pragma: no cover - watchdog abort best-effort
+                        pass
+
+        watcher = threading.Thread(
+            target=_watchdog, name="sqlite-query-watchdog", daemon=True
+        )
+        watcher.start()
+
+        cur = None
         try:
             cur = self.connection.cursor()
-            if params:
-                # sqlite uses :name or ?
+            # Bind via the DBAPI — params may be a sequence (?) or mapping
+            # (:name); values are never string-formatted into the SQL.
+            if params is not None:
                 cur.execute(query, params)
             else:
                 cur.execute(query)
             if cur.description:
                 cols = [d[0] for d in cur.description]
-                rows = cur.fetchall()
-                results = [dict(zip(cols, row)) for row in rows]
-                max_results = self.config.get("max_result_size", 10000)
-                return results[:max_results]
+                # Stream rows and stop one past the cap: memory is bounded to
+                # the cap even for an effectively unbounded result set. We never
+                # fetchall() — that was the DoS.
+                rows = cur.fetchmany(max_results + 1)
+                if len(rows) > max_results:
+                    logger.warning(
+                        "Result truncated to max_result_size=%d rows", max_results
+                    )
+                    rows = rows[:max_results]
+                return [dict(zip(cols, row, strict=False)) for row in rows]
             self.connection.commit()
             return [{"affected_rows": cur.rowcount}]
         except Exception as e:
-            self.connection.rollback()
-            raise ExecutionError(f"SQLite execution failed: {e}") from e
+            try:
+                self.connection.rollback()
+            except Exception:  # noqa: S110  # pragma: no cover - rollback best-effort
+                pass
+            # Full detail to the driver log only; the caller gets a generic
+            # message so raw DB internals never leak.
+            logger.debug("SQLite execution failed: %s", e, exc_info=True)
+            raise ExecutionError("query execution failed") from e
+        finally:
+            done.set()
+            watcher.join(timeout=timeout + 1)
+            if cur is not None:
+                try:
+                    cur.close()
+                except Exception:  # noqa: S110  # pragma: no cover - cursor close best-effort
+                    pass
 
-    def _fetch_schema_impl(self) -> Dict[str, Dict[str, str]]:
+    def _fetch_schema_impl(self) -> dict[str, dict[str, str]]:
         if self.connection is None:
             raise ConnectionError("Not connected")
         cur = self.connection.cursor()
@@ -88,7 +135,7 @@ class SQLiteDriver(BaseDriver):
             "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%'"
         )
         tables = [r[0] for r in cur.fetchall()]
-        schema: Dict[str, Dict[str, str]] = {}
+        schema: dict[str, dict[str, str]] = {}
         for table in tables:
             # table names from sqlite_master are trusted identifiers
             cur.execute(f'PRAGMA table_info("{table}")')
@@ -102,7 +149,7 @@ class SQLiteDriver(BaseDriver):
     def supports_schemas(self) -> bool:
         return False
 
-    def _get_driver_info(self) -> Dict[str, Any]:
+    def _get_driver_info(self) -> dict[str, Any]:
         return {"driver": "sqlite", "path": self.db_path, "sqlite_version": sqlite3.sqlite_version}
 
     def _begin_transaction(self) -> None:

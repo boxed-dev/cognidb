@@ -1,14 +1,23 @@
 """Secrets management for sensitive configuration."""
 
-import os
-import json
+from __future__ import annotations
+
 import base64
-from typing import Dict, Any, Optional
+import json
+import os
 from pathlib import Path
+from typing import Any
+
 from cryptography.fernet import Fernet
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
 from ..core.exceptions import ConfigurationError
+
+# OWASP 2024 guidance for PBKDF2-HMAC-SHA256 (>= 600_000 iterations).
+KDF_ITERATIONS = 600_000
+# Per-install random salt length in bytes.
+SALT_BYTES = 16
 
 
 class SecretsManager:
@@ -33,8 +42,8 @@ class SecretsManager:
         """
         self.provider = provider
         self.config = kwargs
-        self._cache: Dict[str, Any] = {}
-        self._cipher: Optional[Fernet] = None
+        self._cache: dict[str, Any] = {}
+        self._cipher: Fernet | None = None
         
         if provider == "file":
             self._init_file_provider()
@@ -138,45 +147,62 @@ class SecretsManager:
         
         # Create directory if needed
         Path(secrets_file).parent.mkdir(parents=True, exist_ok=True)
-        
-        # Generate encryption key from password
+
+        self.secrets_file = secrets_file
+        # Derives the cipher from a per-install random salt and loads any
+        # existing ciphertext. The salt is persisted beside the ciphertext so
+        # decryption works across process restarts.
+        self._load_secrets_file(master_password)
+
+    @staticmethod
+    def _derive_cipher(master_password: str, salt: bytes) -> Fernet:
+        """Derive a Fernet cipher from the master password and a random salt."""
         kdf = PBKDF2HMAC(
             algorithm=hashes.SHA256(),
             length=32,
-            salt=b'cognidb_salt',  # In production, use random salt
-            iterations=100000,
+            salt=salt,
+            iterations=KDF_ITERATIONS,
         )
         key = base64.urlsafe_b64encode(kdf.derive(master_password.encode()))
-        self._cipher = Fernet(key)
-        
-        self.secrets_file = secrets_file
-        self._load_secrets_file()
-    
-    def _load_secrets_file(self) -> None:
-        """Load secrets from encrypted file."""
-        if not Path(self.secrets_file).exists():
+        return Fernet(key)
+
+    def _load_secrets_file(self, master_password: str) -> None:
+        """Load secrets from the encrypted keystore (a salt+ciphertext envelope)."""
+        path = Path(self.secrets_file)
+        if not path.exists():
+            # Fresh install: mint a new per-install salt; nothing to decrypt yet.
+            self._salt = os.urandom(SALT_BYTES)
+            self._cipher = self._derive_cipher(master_password, self._salt)
             self._secrets_data = {}
             return
-        
+
         try:
-            with open(self.secrets_file, 'rb') as f:
-                encrypted_data = f.read()
-            
-            decrypted_data = self._cipher.decrypt(encrypted_data)
+            with open(path) as f:
+                envelope = json.load(f)
+            self._salt = bytes.fromhex(envelope['salt'])
+            self._cipher = self._derive_cipher(master_password, self._salt)
+            ciphertext = base64.b64decode(envelope['ciphertext'])
+            decrypted_data = self._cipher.decrypt(ciphertext)
             self._secrets_data = json.loads(decrypted_data.decode())
         except Exception as e:
-            raise ConfigurationError(f"Failed to load secrets file: {e}")
-    
+            raise ConfigurationError(f"Failed to load secrets file: {e}") from e
+
     def _save_secrets_file(self) -> None:
-        """Save secrets to encrypted file."""
+        """Save secrets to the encrypted keystore with 0600 permissions."""
         try:
             data = json.dumps(self._secrets_data).encode()
-            encrypted_data = self._cipher.encrypt(data)
-            
-            with open(self.secrets_file, 'wb') as f:
-                f.write(encrypted_data)
+            ciphertext = self._cipher.encrypt(data)
+            envelope = {
+                'salt': self._salt.hex(),
+                'ciphertext': base64.b64encode(ciphertext).decode('ascii'),
+            }
+
+            path = Path(self.secrets_file)
+            with open(path, 'w') as f:
+                json.dump(envelope, f)
+            os.chmod(path, 0o600)
         except Exception as e:
-            raise ConfigurationError(f"Failed to save secrets file: {e}")
+            raise ConfigurationError(f"Failed to save secrets file: {e}") from e
     
     def _get_file_secret(self, key: str, default: Any) -> Any:
         """Get secret from file."""
@@ -205,7 +231,7 @@ class SecretsManager:
         except ImportError:
             raise ConfigurationError(
                 "boto3 required for AWS Secrets Manager. Install with: pip install boto3"
-            )
+            ) from None
     
     def _get_aws_secret(self, key: str, default: Any) -> Any:
         """Get secret from AWS Secrets Manager."""
@@ -222,7 +248,7 @@ class SecretsManager:
         except self._aws_client.exceptions.ResourceNotFoundException:
             return default
         except Exception as e:
-            raise ConfigurationError(f"Failed to get AWS secret: {e}")
+            raise ConfigurationError(f"Failed to get AWS secret: {e}") from e
     
     def _set_aws_secret(self, key: str, value: Any) -> None:
         """Set secret in AWS Secrets Manager."""
@@ -239,7 +265,7 @@ class SecretsManager:
                     SecretString=secret_string
                 )
         except Exception as e:
-            raise ConfigurationError(f"Failed to set AWS secret: {e}")
+            raise ConfigurationError(f"Failed to set AWS secret: {e}") from e
     
     def _delete_aws_secret(self, key: str) -> None:
         """Delete secret from AWS Secrets Manager."""
@@ -249,7 +275,7 @@ class SecretsManager:
                 ForceDeleteWithoutRecovery=True
             )
         except Exception as e:
-            raise ConfigurationError(f"Failed to delete AWS secret: {e}")
+            raise ConfigurationError(f"Failed to delete AWS secret: {e}") from e
     
     # HashiCorp Vault provider methods
     
@@ -266,7 +292,7 @@ class SecretsManager:
         except ImportError:
             raise ConfigurationError(
                 "hvac required for HashiCorp Vault. Install with: pip install hvac"
-            )
+            ) from None
     
     def _get_vault_secret(self, key: str, default: Any) -> Any:
         """Get secret from HashiCorp Vault."""
@@ -290,7 +316,7 @@ class SecretsManager:
                 mount_point=mount_point
             )
         except Exception as e:
-            raise ConfigurationError(f"Failed to set Vault secret: {e}")
+            raise ConfigurationError(f"Failed to set Vault secret: {e}") from e
     
     def _delete_vault_secret(self, key: str) -> None:
         """Delete secret from HashiCorp Vault."""
@@ -301,15 +327,15 @@ class SecretsManager:
                 mount_point=mount_point
             )
         except Exception as e:
-            raise ConfigurationError(f"Failed to delete Vault secret: {e}")
+            raise ConfigurationError(f"Failed to delete Vault secret: {e}") from e
     
     # Azure Key Vault provider methods
     
     def _init_azure_provider(self) -> None:
         """Initialize Azure Key Vault provider."""
         try:
-            from azure.keyvault.secrets import SecretClient
             from azure.identity import DefaultAzureCredential
+            from azure.keyvault.secrets import SecretClient
             
             vault_url = self.config.get('vault_url')
             if not vault_url:
@@ -324,7 +350,7 @@ class SecretsManager:
             raise ConfigurationError(
                 "azure-keyvault-secrets required. Install with: "
                 "pip install azure-keyvault-secrets azure-identity"
-            )
+            ) from None
     
     def _get_azure_secret(self, key: str, default: Any) -> Any:
         """Get secret from Azure Key Vault."""
@@ -340,7 +366,7 @@ class SecretsManager:
             value_str = json.dumps(value) if not isinstance(value, str) else value
             self._azure_client.set_secret(key, value_str)
         except Exception as e:
-            raise ConfigurationError(f"Failed to set Azure secret: {e}")
+            raise ConfigurationError(f"Failed to set Azure secret: {e}") from e
     
     def _delete_azure_secret(self, key: str) -> None:
         """Delete secret from Azure Key Vault."""
@@ -348,4 +374,4 @@ class SecretsManager:
             poller = self._azure_client.begin_delete_secret(key)
             poller.wait()
         except Exception as e:
-            raise ConfigurationError(f"Failed to delete Azure secret: {e}")
+            raise ConfigurationError(f"Failed to delete Azure secret: {e}") from e

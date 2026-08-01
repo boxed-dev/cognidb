@@ -1,10 +1,12 @@
 """Settings and configuration classes."""
 
-from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Any
-from enum import Enum, auto
+from __future__ import annotations
+
 import os
+from dataclasses import dataclass, field
+from enum import Enum
 from pathlib import Path
+from typing import Any
 
 
 class DatabaseType(Enum):
@@ -40,8 +42,8 @@ class DatabaseConfig:
     host: str
     port: int
     database: str
-    username: Optional[str] = None
-    password: Optional[str] = None
+    username: str | None = None
+    password: str | None = field(default=None, repr=False)
     
     # Connection pool settings
     pool_size: int = 5
@@ -51,16 +53,16 @@ class DatabaseConfig:
     
     # SSL/TLS settings
     ssl_enabled: bool = False
-    ssl_ca_cert: Optional[str] = None
-    ssl_client_cert: Optional[str] = None
-    ssl_client_key: Optional[str] = None
+    ssl_ca_cert: str | None = None
+    ssl_client_cert: str | None = None
+    ssl_client_key: str | None = None
     
     # Query settings
     query_timeout: int = 30  # seconds
     max_result_size: int = 10000  # rows
     
     # Additional options
-    options: Dict[str, Any] = field(default_factory=dict)
+    options: dict[str, Any] = field(default_factory=dict)
     
     def get_connection_string(self) -> str:
         """Generate connection string (without password)."""
@@ -78,7 +80,7 @@ class DatabaseConfig:
 class LLMConfig:
     """LLM configuration."""
     provider: LLMProvider
-    api_key: Optional[str] = None
+    api_key: str | None = field(default=None, repr=False)
     
     # Model settings
     model_name: str = "gpt-4"
@@ -92,14 +94,14 @@ class LLMConfig:
     max_cost_per_day: float = 100.0
     
     # Prompt settings
-    system_prompt: Optional[str] = None
-    few_shot_examples: List[Dict[str, str]] = field(default_factory=list)
+    system_prompt: str | None = None
+    few_shot_examples: list[dict[str, str]] = field(default_factory=list)
     
     # Provider-specific settings
-    azure_endpoint: Optional[str] = None
-    azure_deployment: Optional[str] = None
-    huggingface_model_id: Optional[str] = None
-    local_model_path: Optional[str] = None
+    azure_endpoint: str | None = None
+    azure_deployment: str | None = None
+    huggingface_model_id: str | None = None
+    local_model_path: str | None = None
     
     # Advanced settings
     enable_function_calling: bool = True
@@ -126,7 +128,7 @@ class CacheConfig:
     # Redis settings
     redis_host: str = "localhost"
     redis_port: int = 6379
-    redis_password: Optional[str] = None
+    redis_password: str | None = field(default=None, repr=False)
     redis_db: int = 0
     redis_ssl: bool = False
     
@@ -162,7 +164,7 @@ class SecurityConfig:
 
     # Access control (ADR 0005)
     enable_access_control: bool = False  # opt-in; when on, require caller identity allowlists
-    default_user_permissions: List[str] = field(default_factory=lambda: ["SELECT"])
+    default_user_permissions: list[str] = field(default_factory=lambda: ["SELECT"])
     require_authentication: bool = False
 
     # Audit logging
@@ -173,10 +175,10 @@ class SecurityConfig:
     # Encryption
     encrypt_cache: bool = True
     encrypt_logs: bool = True
-    encryption_key: Optional[str] = None
+    encryption_key: str | None = field(default=None, repr=False)
 
     # Network security
-    allowed_ip_ranges: List[str] = field(default_factory=list)
+    allowed_ip_ranges: list[str] = field(default_factory=list)
     require_ssl: bool = True
 
 
@@ -209,10 +211,10 @@ class Settings:
     enable_metrics: bool = True
     metrics_port: int = 9090
     enable_tracing: bool = True
-    tracing_endpoint: Optional[str] = None
+    tracing_endpoint: str | None = None
     
     @classmethod
-    def from_env(cls) -> 'Settings':
+    def from_env(cls) -> Settings:
         """Create settings from environment variables."""
         return cls(
             database=DatabaseConfig(
@@ -238,7 +240,7 @@ class Settings:
             debug=os.getenv('DEBUG', 'false').lower() == 'true'
         )
     
-    def validate(self) -> List[str]:
+    def validate(self) -> list[str]:
         """Validate settings and return list of errors."""
         errors = []
         

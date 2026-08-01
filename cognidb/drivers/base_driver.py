@@ -1,12 +1,15 @@
 """Base implementation for database drivers with common functionality."""
 
-import time
+from __future__ import annotations
+
 import logging
-from typing import Dict, List, Any, Optional, Tuple
-from contextlib import contextmanager
+import time
 from abc import abstractmethod
-from ..core.interfaces import DatabaseDriver
+from contextlib import contextmanager
+from typing import Any
+
 from ..core.exceptions import ConnectionError, ExecutionError, SchemaError
+from ..core.interfaces import DatabaseDriver
 from ..security.sanitizer import InputSanitizer
 
 logger = logging.getLogger(__name__)
@@ -24,7 +27,7 @@ class BaseDriver(DatabaseDriver):
     - Error handling
     """
     
-    def __init__(self, config: Dict[str, Any]):
+    def __init__(self, config: dict[str, Any]):
         """
         Initialize base driver.
         
@@ -52,11 +55,11 @@ class BaseDriver(DatabaseDriver):
             self._commit_transaction()
         except Exception as e:
             self._rollback_transaction()
-            raise ExecutionError(f"Transaction failed: {str(e)}")
+            raise ExecutionError(f"Transaction failed: {str(e)}") from e
     
     def execute_native_query(self, 
                            query: str, 
-                           params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+                           params: dict[str, Any] | None = None) -> list[dict[str, Any]]:
         """
         Execute a native query with parameters.
         
@@ -69,27 +72,59 @@ class BaseDriver(DatabaseDriver):
         """
         if not self.connection:
             raise ConnectionError("Not connected to database")
-        
+
         # Log query for debugging (without params for security)
         logger.debug(f"Executing query: {query[:100]}...")
-        
+
         start_time = time.time()
-        
+
         try:
             # Execute with timeout
             results = self._execute_with_timeout(query, params)
-            
+
             # Log execution time
             execution_time = time.time() - start_time
             logger.info(f"Query executed in {execution_time:.2f}s")
-            
+
             return results
-            
+
+        except (ExecutionError, ConnectionError):
+            # Drivers already surface a generic, caller-safe message and log the
+            # raw detail at debug level — never re-wrap it (that would leak the
+            # underlying DB error string back to the caller).
+            raise
         except Exception as e:
-            logger.error(f"Query execution failed: {str(e)}")
-            raise ExecutionError(f"Query execution failed: {str(e)}")
+            # Full detail to the driver log only; the caller gets a generic
+            # message so raw DB internals never leak.
+            logger.debug("Query execution failed", exc_info=True)
+            raise ExecutionError("query execution failed") from e
     
-    def fetch_schema(self) -> Dict[str, Dict[str, str]]:
+    @staticmethod
+    def _returns_rows(query: str) -> bool:
+        """Best-effort check for a row-returning statement from its leading verb.
+
+        Drives fetch strategy (streaming cursor vs. affected-row count) without
+        executing the query first. Leading parentheses (``(SELECT ...)``) are
+        skipped so wrapped SELECTs are still recognised.
+        """
+        stripped = query.lstrip()
+        while stripped.startswith("("):
+            stripped = stripped[1:].lstrip()
+        if not stripped:
+            return False
+        first = stripped.split(None, 1)[0].upper()
+        return first in {
+            "SELECT",
+            "WITH",
+            "VALUES",
+            "TABLE",
+            "SHOW",
+            "EXPLAIN",
+            "DESCRIBE",
+            "DESC",
+        }
+
+    def fetch_schema(self) -> dict[str, dict[str, str]]:
         """
         Fetch database schema with caching.
         
@@ -115,7 +150,7 @@ class BaseDriver(DatabaseDriver):
             
         except Exception as e:
             logger.error(f"Failed to fetch schema: {str(e)}")
-            raise SchemaError(f"Failed to fetch schema: {str(e)}")
+            raise SchemaError(f"Failed to fetch schema: {str(e)}") from e
     
     def validate_table_name(self, table_name: str) -> bool:
         """Validate that a table name exists and is safe."""
@@ -146,7 +181,7 @@ class BaseDriver(DatabaseDriver):
         table_columns = schema.get(table_name, {})
         return sanitized_column in table_columns
     
-    def get_connection_info(self) -> Dict[str, Any]:
+    def get_connection_info(self) -> dict[str, Any]:
         """Get connection information (for debugging, minus secrets)."""
         info = {
             'driver': self.__class__.__name__,
@@ -197,12 +232,14 @@ class BaseDriver(DatabaseDriver):
         pass
     
     @abstractmethod
-    def _execute_with_timeout(self, query: str, params: Optional[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _execute_with_timeout(
+        self, query: str, params: dict[str, Any] | None
+    ) -> list[dict[str, Any]]:
         """Execute query with timeout (implementation specific)."""
         pass
     
     @abstractmethod
-    def _fetch_schema_impl(self) -> Dict[str, Dict[str, str]]:
+    def _fetch_schema_impl(self) -> dict[str, dict[str, str]]:
         """Fetch schema implementation."""
         pass
     
@@ -222,6 +259,6 @@ class BaseDriver(DatabaseDriver):
         pass
     
     @abstractmethod
-    def _get_driver_info(self) -> Dict[str, Any]:
+    def _get_driver_info(self) -> dict[str, Any]:
         """Get driver-specific information."""
         pass

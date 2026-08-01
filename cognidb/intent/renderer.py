@@ -1,70 +1,75 @@
-"""Deterministic QueryIntent → SQL renderer (ADR 0006).
+"""Deterministic QueryIntent -> parameterized SQL renderer (ADR 0006, Contract 2).
 
 Deep module: small public surface (`render_sql`), large internal formatting logic.
+
+Security invariant: **no value is ever interpolated into the SQL string.** Every
+value becomes a bound parameter using the dialect placeholder; only structural
+integers (LIMIT/OFFSET) are inlined. Identifiers cannot be bound, so each is
+validated against a strict pattern and rejected fail-closed if malformed.
 """
 
 from __future__ import annotations
 
-from typing import Any, FrozenSet, Union
+import re
+from dataclasses import dataclass
+from typing import Any
 
 from ..core.query_intent import (
-    Column,
     ComparisonOperator,
     Condition,
     ConditionGroup,
-    LogicalOperator,
     QueryIntent,
-    QueryType,
 )
 
-# Read-oriented types + INSERT for write-mode intent path (ADR 0003/0006)
-_ALLOWED_QUERY_TYPES: FrozenSet[str] = frozenset({
-    "SELECT",
-    "AGGREGATE",
-    "COUNT",
-    "DISTINCT",
-    "INSERT",
+_ALLOWED_QUERY_TYPES: frozenset[str] = frozenset({
+    "SELECT", "AGGREGATE", "COUNT", "DISTINCT", "INSERT",
 })
 
-_DDL_FORBIDDEN: FrozenSet[str] = frozenset({
-    "DROP",
-    "CREATE",
-    "ALTER",
-    "TRUNCATE",
-    "GRANT",
-    "REVOKE",
-    "RENAME",
-    "REPLACE",
-    "MERGE",
+_DDL_FORBIDDEN: frozenset[str] = frozenset({
+    "DROP", "CREATE", "ALTER", "TRUNCATE", "GRANT", "REVOKE",
+    "RENAME", "REPLACE", "MERGE",
 })
+
+_PLACEHOLDER = {"sqlite": "?", "postgres": "%s", "mysql": "%s"}
+
+_IDENT_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class IntentRenderError(ValueError):
     """Raised when a QueryIntent cannot be safely rendered to SQL."""
 
 
-def render_sql(intent: QueryIntent) -> str:
-    """
-    Render a QueryIntent to a single SQL statement string.
+@dataclass(frozen=True)
+class RenderedSQL:
+    """A parameterized statement: SQL text with placeholders + ordered params."""
 
-    Only SELECT-family and INSERT intents are supported. DDL-shaped types are
-    rejected fail-closed with IntentRenderError.
+    sql: str
+    params: tuple[Any, ...] = ()
+
+
+def render_sql(intent: QueryIntent, *, dialect: str) -> RenderedSQL:
+    """Render a QueryIntent to a single parameterized SQL statement.
+
+    Args:
+        intent: the query intent to render.
+        dialect: target engine — ``sqlite`` (``?``) or ``postgres``/``mysql`` (``%s``).
     """
+    placeholder = _PLACEHOLDER.get(dialect)
+    if placeholder is None:
+        raise IntentRenderError(f"Unsupported dialect: {dialect!r}")
+
     type_name = _type_name(intent.query_type)
-
     if type_name in _DDL_FORBIDDEN:
-        raise IntentRenderError(
-            f"DDL/forbidden query type not allowed: {type_name}"
-        )
+        raise IntentRenderError(f"DDL/forbidden query type not allowed: {type_name}")
     if type_name not in _ALLOWED_QUERY_TYPES:
-        raise IntentRenderError(
-            f"Query type not supported by intent renderer: {type_name}"
-        )
+        raise IntentRenderError(f"Query type not supported by intent renderer: {type_name}")
 
+    params: list[Any] = []
     if type_name == "INSERT":
-        return _render_insert(intent)
-
-    return _render_select(intent, type_name)
+        sql = _render_insert(intent, placeholder, params)
+    else:
+        sql = _render_select(intent, type_name, placeholder, params)
+    return RenderedSQL(sql=sql, params=tuple(params))
 
 
 def _type_name(query_type: Any) -> str:
@@ -73,35 +78,58 @@ def _type_name(query_type: Any) -> str:
     return str(query_type).upper()
 
 
-def _render_select(intent: QueryIntent, type_name: str) -> str:
+def _ident(raw: Any) -> str:
+    """Validate an identifier (optionally dotted, ``*`` allowed) or fail closed."""
+    s = str(raw).strip()
+    if s == "*":
+        return "*"
+    if not s:
+        raise IntentRenderError("Empty identifier")
+    for part in s.split("."):
+        if part == "*":
+            continue
+        if not _IDENT_RE.match(part):
+            raise IntentRenderError(f"Invalid identifier: {raw!r}")
+    return s
+
+
+def _func(raw: Any) -> str:
+    s = str(raw).strip().upper()
+    if not re.match(r"^[A-Z_]+$", s):
+        raise IntentRenderError(f"Invalid function name: {raw!r}")
+    return s
+
+
+def _render_select(intent: QueryIntent, type_name: str, ph: str, params: list[Any]) -> str:
     columns = _format_columns(intent, type_name)
-    tables = ", ".join(intent.tables)
+    tables = ", ".join(_ident(t) for t in intent.tables)
     distinct = "DISTINCT " if intent.distinct or type_name == "DISTINCT" else ""
 
-    parts = [f"SELECT {distinct}{columns} FROM {tables}"]
+    # Identifiers are pre-validated by _ident(); every value is a bound parameter,
+    # so this f-string interpolates only trusted structural tokens.
+    parts = [f"SELECT {distinct}{columns} FROM {tables}"]  # noqa: S608  # nosec B608
 
-    if intent.joins:
-        for join in intent.joins:
-            parts.append(
-                f"{join.join_type.value} JOIN {join.right_table} "
-                f"ON {join.left_table}.{join.left_column} = "
-                f"{join.right_table}.{join.right_column}"
-            )
+    for join in intent.joins:
+        parts.append(
+            f"{join.join_type.value} JOIN {_ident(join.right_table)} "
+            f"ON {_ident(join.left_table)}.{_ident(join.left_column)} = "
+            f"{_ident(join.right_table)}.{_ident(join.right_column)}"
+        )
 
     if intent.conditions and intent.conditions.conditions:
-        parts.append(f"WHERE {_format_condition_group(intent.conditions)}")
+        parts.append(f"WHERE {_format_condition_group(intent.conditions, ph, params)}")
 
     if intent.group_by:
-        parts.append("GROUP BY " + ", ".join(str(c) for c in intent.group_by))
+        parts.append("GROUP BY " + ", ".join(_ident(c) for c in intent.group_by))
 
     if intent.having and intent.having.conditions:
-        parts.append(f"HAVING {_format_condition_group(intent.having)}")
+        parts.append(f"HAVING {_format_condition_group(intent.having, ph, params)}")
 
     if intent.order_by:
         order_bits = []
         for ob in intent.order_by:
             direction = "ASC" if ob.ascending else "DESC"
-            order_bits.append(f"{ob.column} {direction}")
+            order_bits.append(f"{_ident(ob.column)} {direction}")
         parts.append("ORDER BY " + ", ".join(order_bits))
 
     if intent.limit is not None:
@@ -114,94 +142,85 @@ def _render_select(intent: QueryIntent, type_name: str) -> str:
 
 def _format_columns(intent: QueryIntent, type_name: str) -> str:
     if type_name == "COUNT" and not intent.aggregations:
-        # COUNT intent without explicit aggregation: COUNT(*)
         if len(intent.columns) == 1 and intent.columns[0].name == "*":
             return "COUNT(*)"
         if intent.columns:
-            return f"COUNT({intent.columns[0]})"
+            return f"COUNT({_ident(intent.columns[0])})"
         return "COUNT(*)"
 
     if intent.aggregations:
         agg_parts = []
         for agg in intent.aggregations:
-            expr = f"{agg.function.value}({agg.column})"
+            expr = f"{_func(agg.function.value)}({_ident(agg.column)})"
             if agg.alias:
-                expr = f"{expr} AS {agg.alias}"
+                expr = f"{expr} AS {_ident(agg.alias)}"
             agg_parts.append(expr)
-        # Include non-aggregated columns (expected in GROUP BY)
-        col_parts = [str(c) for c in intent.columns]
+        col_parts = [_ident(c) for c in intent.columns]
         return ", ".join(col_parts + agg_parts) if col_parts else ", ".join(agg_parts)
 
     if not intent.columns:
         return "*"
-    return ", ".join(str(c) for c in intent.columns)
+    return ", ".join(_ident(c) for c in intent.columns)
 
 
-def _render_insert(intent: QueryIntent) -> str:
+def _render_insert(intent: QueryIntent, ph: str, params: list[Any]) -> str:
     if len(intent.tables) != 1:
         raise IntentRenderError("INSERT intent requires exactly one table")
-    table = intent.tables[0]
-    cols = [c.name for c in intent.columns if c.name != "*"]
+    table = _ident(intent.tables[0])
+    cols = [_ident(c.name) for c in intent.columns if c.name != "*"]
     if not cols:
         raise IntentRenderError("INSERT intent requires explicit columns")
 
+    raw_cols = [c.name for c in intent.columns if c.name != "*"]
     values = getattr(intent, "values", None)
     if values is None:
         raise IntentRenderError("INSERT intent requires values")
 
     if isinstance(values, dict):
-        ordered = [_sql_literal(values[c]) for c in cols]
+        ordered = [values[c] for c in raw_cols]
     elif isinstance(values, (list, tuple)):
         if len(values) != len(cols):
             raise IntentRenderError("INSERT values length must match columns")
-        ordered = [_sql_literal(v) for v in values]
+        ordered = list(values)
     else:
         raise IntentRenderError("INSERT values must be a dict or sequence")
 
-    col_list = ", ".join(cols)
-    val_list = ", ".join(ordered)
-    return f"INSERT INTO {table} ({col_list}) VALUES ({val_list})"
+    params.extend(ordered)
+    placeholders = ", ".join([ph] * len(ordered))
+    # table/cols are pre-validated by _ident(); placeholders are bind markers and
+    # every value is bound, so no value is interpolated into this SQL string.
+    return f"INSERT INTO {table} ({', '.join(cols)}) VALUES ({placeholders})"  # noqa: S608  # nosec B608
 
 
-def _format_condition_group(group: ConditionGroup) -> str:
+def _format_condition_group(group: ConditionGroup, ph: str, params: list[Any]) -> str:
     parts = []
     for item in group.conditions:
         if isinstance(item, ConditionGroup):
-            parts.append(f"({_format_condition_group(item)})")
+            parts.append(f"({_format_condition_group(item, ph, params)})")
         else:
-            parts.append(_format_condition(item))
+            parts.append(_format_condition(item, ph, params))
     joiner = f" {group.operator.value} "
     return joiner.join(parts)
 
 
-def _format_condition(cond: Condition) -> str:
-    col = str(cond.column)
+def _format_condition(cond: Condition, ph: str, params: list[Any]) -> str:
+    col = _ident(cond.column)
     op = cond.operator
 
     if op == ComparisonOperator.IS_NULL:
         return f"{col} IS NULL"
     if op == ComparisonOperator.IS_NOT_NULL:
         return f"{col} IS NOT NULL"
-    if op == ComparisonOperator.IN:
-        vals = ", ".join(_sql_literal(v) for v in cond.value)
-        return f"{col} IN ({vals})"
-    if op == ComparisonOperator.NOT_IN:
-        vals = ", ".join(_sql_literal(v) for v in cond.value)
-        return f"{col} NOT IN ({vals})"
+    if op in (ComparisonOperator.IN, ComparisonOperator.NOT_IN):
+        vals = list(cond.value)
+        params.extend(vals)
+        placeholders = ", ".join([ph] * len(vals))
+        keyword = "IN" if op == ComparisonOperator.IN else "NOT IN"
+        return f"{col} {keyword} ({placeholders})"
     if op == ComparisonOperator.BETWEEN:
         lo, hi = cond.value
-        return f"{col} BETWEEN {_sql_literal(lo)} AND {_sql_literal(hi)}"
+        params.extend([lo, hi])
+        return f"{col} BETWEEN {ph} AND {ph}"
 
-    return f"{col} {op.value} {_sql_literal(cond.value)}"
-
-
-def _sql_literal(value: Any) -> str:
-    if value is None:
-        return "NULL"
-    if isinstance(value, bool):
-        return "TRUE" if value else "FALSE"
-    if isinstance(value, (int, float)) and not isinstance(value, bool):
-        return str(value)
-    # Escape single quotes for string literals
-    text = str(value).replace("'", "''")
-    return f"'{text}'"
+    params.append(cond.value)
+    return f"{col} {op.value} {ph}"

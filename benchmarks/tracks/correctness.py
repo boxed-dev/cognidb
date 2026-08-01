@@ -4,11 +4,15 @@ from __future__ import annotations
 
 from collections import Counter
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
+from benchmarks.metrics import exact_sql_match, result_match, soft_match
+from benchmarks.pipeline_factory import load_commerce_driver, make_pipeline
+from benchmarks.runner import load_jsonl
+from benchmarks.types import CaseResult, TrackReport, score_of
 from cognidb.core.query_intent import (
-    Aggregation,
     AggregateFunction,
+    Aggregation,
     Column,
     ComparisonOperator,
     Condition,
@@ -21,13 +25,8 @@ from cognidb.core.query_intent import (
     QueryType,
 )
 
-from benchmarks.metrics import exact_sql_match, result_match, soft_match
-from benchmarks.pipeline_factory import load_commerce_driver, make_pipeline
-from benchmarks.runner import load_jsonl
-from benchmarks.types import CaseResult, TrackReport, score_of
 
-
-def _intent_from_dict(raw: Optional[Dict[str, Any]]) -> Optional[QueryIntent]:
+def _intent_from_dict(raw: dict[str, Any] | None) -> QueryIntent | None:
     if not raw:
         return None
     qtype = QueryType[raw.get("query_type", "SELECT")]
@@ -96,13 +95,13 @@ def _intent_from_dict(raw: Optional[Dict[str, Any]]) -> Optional[QueryIntent]:
 def run_correctness_track(
     path: Path,
     *,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     seed: int = 42,
 ) -> TrackReport:
     del seed  # deterministic fixtures; reserved for future sampling
     cases = load_jsonl(path, limit=limit)
     driver = load_commerce_driver()
-    results: List[CaseResult] = []
+    results: list[CaseResult] = []
     by_diff: Counter = Counter()
     by_diff_pass: Counter = Counter()
 

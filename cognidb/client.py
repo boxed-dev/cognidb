@@ -5,24 +5,26 @@ A production-ready natural language to SQL interface with comprehensive
 security, multi-database support, and intelligent query generation.
 """
 
-__version__ = "3.0.1"
+from __future__ import annotations
+
+__version__ = "4.0.0"
 __author__ = "Rishabh Kumar"
 
 import logging
-from typing import Dict, Any, Optional, List, Union
-from pathlib import Path
+from typing import Any
+
+from .ai import LLMManager, QueryGenerator
+from .config import ConfigLoader, DatabaseType
 
 # Core imports
 from .core.exceptions import CogniDBError
-from .config import ConfigLoader, Settings, DatabaseType
-from .security import QuerySecurityValidator, AccessController, InputSanitizer
-from .ai import LLMManager, QueryGenerator
 from .drivers import (
     MySQLDriver,
     PostgreSQLDriver,
     SQLiteDriver,
 )
 from .pipeline import SecureQueryPipeline
+from .security import AccessController, InputSanitizer, QuerySecurityValidator
 from .security.statement_policy import StatementMode, StatementPolicy
 
 # Setup logging
@@ -47,7 +49,7 @@ class CogniDB:
     """
     
     def __init__(self, 
-                 config_file: Optional[str] = None,
+                 config_file: str | None = None,
                  **kwargs):
         """
         Initialize CogniDB.
@@ -106,8 +108,8 @@ class CogniDB:
     
     def query(self, 
               natural_language_query: str,
-              user_id: Optional[str] = None,
-              explain: bool = False) -> Dict[str, Any]:
+              user_id: str | None = None,
+              explain: bool = False) -> dict[str, Any]:
         """
         Execute a natural language query through the secure pipeline.
         
@@ -125,7 +127,7 @@ class CogniDB:
             explain=explain,
         ).to_dict()
 
-    def optimize_query(self, sql_query: str) -> Dict[str, Any]:
+    def optimize_query(self, sql_query: str) -> dict[str, Any]:
         """
         Get optimization suggestions for a SQL query.
         
@@ -155,7 +157,7 @@ class CogniDB:
                 'error': str(e)
             }
     
-    def suggest_queries(self, partial_query: str) -> List[str]:
+    def suggest_queries(self, partial_query: str) -> list[str]:
         """
         Get query suggestions based on partial input.
         
@@ -174,7 +176,7 @@ class CogniDB:
             logger.error(f"Failed to generate suggestions: {str(e)}")
             return []
     
-    def get_schema(self, table_name: Optional[str] = None) -> Dict[str, Any]:
+    def get_schema(self, table_name: str | None = None) -> dict[str, Any]:
         """
         Get database schema information.
         
@@ -190,7 +192,7 @@ class CogniDB:
             }
         return self.schema
     
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def get_usage_stats(self) -> dict[str, Any]:
         """Get usage statistics including costs."""
         return self.llm_manager.get_usage_stats()
     
@@ -279,18 +281,18 @@ class CogniDB:
         # In production, would initialize Redis/Memcached here
         pass
     
-    def _apply_config_overrides(self, overrides: Dict[str, Any]):
+    def _apply_config_overrides(self, overrides: dict[str, Any]):
         """Apply configuration overrides."""
         for key, value in overrides.items():
             if hasattr(self.settings, key):
                 setattr(self.settings, key, value)
     
     def _audit_log(self, 
-                   user_id: Optional[str],
+                   user_id: str | None,
                    natural_language_query: str,
-                   sql_query: Optional[str],
+                   sql_query: str | None,
                    success: bool,
-                   error: Optional[str] = None):
+                   error: str | None = None):
         """Log query for audit trail."""
         if not self.settings.security.enable_audit_logging:
             return

@@ -1,6 +1,9 @@
 """Advanced prompt builder for SQL generation."""
 
-from typing import Dict, List, Any, Optional
+from __future__ import annotations
+
+from typing import Any
+
 from ..core.query_intent import QueryIntent
 
 
@@ -49,9 +52,9 @@ class PromptBuilder:
     
     def build_sql_generation_prompt(self,
                                   natural_language_query: str,
-                                  schema: Dict[str, Dict[str, str]],
-                                  examples: Optional[List[Dict[str, str]]] = None,
-                                  context: Optional[Dict[str, Any]] = None) -> str:
+                                  schema: dict[str, dict[str, str]],
+                                  examples: list[dict[str, str]] | None = None,
+                                  context: dict[str, Any] | None = None) -> str:
         """
         Build prompt for SQL generation.
         
@@ -104,7 +107,7 @@ SQL Query:"""
     
     def build_query_explanation_prompt(self,
                                      sql_query: str,
-                                     schema: Dict[str, Dict[str, str]]) -> str:
+                                     schema: dict[str, dict[str, str]]) -> str:
         """
         Build prompt for explaining SQL query.
         
@@ -135,8 +138,8 @@ Explanation:"""
     
     def build_optimization_prompt(self,
                                 sql_query: str,
-                                schema: Dict[str, Dict[str, str]],
-                                performance_stats: Optional[Dict[str, Any]] = None) -> str:
+                                schema: dict[str, dict[str, str]],
+                                performance_stats: dict[str, Any] | None = None) -> str:
         """
         Build prompt for query optimization suggestions.
         
@@ -152,7 +155,8 @@ Explanation:"""
         
         perf_section = ""
         if performance_stats:
-            perf_section = f"\nPerformance Stats:\n{self._format_performance_stats(performance_stats)}"
+            stats_text = self._format_performance_stats(performance_stats)
+            perf_section = f"\nPerformance Stats:\n{stats_text}"
         
         return f"""Analyze and optimize the following SQL query:
 
@@ -198,7 +202,7 @@ Use appropriate syntax and functions for {database_type}.
 SQL Query:"""
     
     def _build_schema_description(self, 
-                                schema: Dict[str, Dict[str, str]],
+                                schema: dict[str, dict[str, str]],
                                 include_indexes: bool = False) -> str:
         """Build formatted schema description."""
         lines = []
@@ -218,7 +222,7 @@ SQL Query:"""
         
         return "\n".join(lines)
     
-    def _build_examples_section(self, examples: List[Dict[str, str]]) -> str:
+    def _build_examples_section(self, examples: list[dict[str, str]]) -> str:
         """Build few-shot examples section."""
         if not examples:
             return ""
@@ -233,7 +237,7 @@ SQL Query:"""
         
         return "\n".join(lines)
     
-    def _build_context_hints(self, context: Dict[str, Any]) -> str:
+    def _build_context_hints(self, context: dict[str, Any]) -> str:
         """Build context-specific hints."""
         hints = []
         
@@ -298,7 +302,7 @@ SQL Query:"""
         
         return "\n".join(lines)
     
-    def _format_performance_stats(self, stats: Dict[str, Any]) -> str:
+    def _format_performance_stats(self, stats: dict[str, Any]) -> str:
         """Format performance statistics."""
         lines = []
         

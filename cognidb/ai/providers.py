@@ -1,8 +1,11 @@
 """LLM provider implementations."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Dict, Any, Optional, Callable
-import time
+from collections.abc import Callable
+from typing import Any
+
 from ..config.settings import LLMConfig
 from ..core.exceptions import CogniDBError
 
@@ -17,9 +20,9 @@ class LLMProvider(ABC):
     @abstractmethod
     def generate(self, 
                 prompt: str,
-                system_prompt: Optional[str] = None,
-                max_tokens: Optional[int] = None,
-                temperature: Optional[float] = None) -> Dict[str, Any]:
+                system_prompt: str | None = None,
+                max_tokens: int | None = None,
+                temperature: float | None = None) -> dict[str, Any]:
         """
         Generate response from LLM.
         
@@ -47,13 +50,15 @@ class OpenAIProvider(LLMProvider):
                 max_retries=config.retry_attempts
             )
         except ImportError:
-            raise CogniDBError("openai package required. Install with: pip install openai")
+            raise CogniDBError(
+                "openai package required. Install with: pip install openai"
+            ) from None
     
     def generate(self, 
                 prompt: str,
-                system_prompt: Optional[str] = None,
-                max_tokens: Optional[int] = None,
-                temperature: Optional[float] = None) -> Dict[str, Any]:
+                system_prompt: str | None = None,
+                max_tokens: int | None = None,
+                temperature: float | None = None) -> dict[str, Any]:
         """Generate response using OpenAI API."""
         messages = []
         
@@ -81,14 +86,14 @@ class OpenAIProvider(LLMProvider):
                 }
             }
         except Exception as e:
-            raise CogniDBError(f"OpenAI API error: {str(e)}")
+            raise CogniDBError(f"OpenAI API error: {str(e)}") from e
     
     def stream_generate(self,
                        prompt: str,
                        callback: Callable[[str], None],
-                       system_prompt: Optional[str] = None,
-                       max_tokens: Optional[int] = None,
-                       temperature: Optional[float] = None):
+                       system_prompt: str | None = None,
+                       max_tokens: int | None = None,
+                       temperature: float | None = None):
         """Stream generation with OpenAI."""
         messages = []
         
@@ -111,7 +116,7 @@ class OpenAIProvider(LLMProvider):
                     callback(chunk.choices[0].delta.content)
                     
         except Exception as e:
-            raise CogniDBError(f"OpenAI streaming error: {str(e)}")
+            raise CogniDBError(f"OpenAI streaming error: {str(e)}") from e
 
 
 class AnthropicProvider(LLMProvider):
@@ -129,13 +134,15 @@ class AnthropicProvider(LLMProvider):
                 max_retries=config.retry_attempts
             )
         except ImportError:
-            raise CogniDBError("anthropic package required. Install with: pip install anthropic")
+            raise CogniDBError(
+                "anthropic package required. Install with: pip install anthropic"
+            ) from None
     
     def generate(self, 
                 prompt: str,
-                system_prompt: Optional[str] = None,
-                max_tokens: Optional[int] = None,
-                temperature: Optional[float] = None) -> Dict[str, Any]:
+                system_prompt: str | None = None,
+                max_tokens: int | None = None,
+                temperature: float | None = None) -> dict[str, Any]:
         """Generate response using Anthropic API."""
         try:
             response = self.client.messages.create(
@@ -159,7 +166,7 @@ class AnthropicProvider(LLMProvider):
                 }
             }
         except Exception as e:
-            raise CogniDBError(f"Anthropic API error: {str(e)}")
+            raise CogniDBError(f"Anthropic API error: {str(e)}") from e
 
 
 class AzureOpenAIProvider(LLMProvider):
@@ -182,13 +189,15 @@ class AzureOpenAIProvider(LLMProvider):
                 max_retries=config.retry_attempts
             )
         except ImportError:
-            raise CogniDBError("openai package required. Install with: pip install openai")
+            raise CogniDBError(
+                "openai package required. Install with: pip install openai"
+            ) from None
     
     def generate(self, 
                 prompt: str,
-                system_prompt: Optional[str] = None,
-                max_tokens: Optional[int] = None,
-                temperature: Optional[float] = None) -> Dict[str, Any]:
+                system_prompt: str | None = None,
+                max_tokens: int | None = None,
+                temperature: float | None = None) -> dict[str, Any]:
         """Generate response using Azure OpenAI."""
         messages = []
         
@@ -215,7 +224,7 @@ class AzureOpenAIProvider(LLMProvider):
                 }
             }
         except Exception as e:
-            raise CogniDBError(f"Azure OpenAI API error: {str(e)}")
+            raise CogniDBError(f"Azure OpenAI API error: {str(e)}") from e
 
 
 class HuggingFaceProvider(LLMProvider):
@@ -229,8 +238,12 @@ class HuggingFaceProvider(LLMProvider):
             raise CogniDBError("HuggingFace model ID required")
         
         try:
-            from transformers import pipeline, AutoTokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(config.huggingface_model_id)
+            from transformers import AutoTokenizer, pipeline
+            # B615: huggingface_model_id is operator-supplied trusted config; pin
+            # the revision at deploy time rather than hard-coding one in library code.
+            self.tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+                config.huggingface_model_id
+            )
             self.pipeline = pipeline(
                 "text-generation",
                 model=config.huggingface_model_id,
@@ -240,13 +253,13 @@ class HuggingFaceProvider(LLMProvider):
         except ImportError:
             raise CogniDBError(
                 "transformers package required. Install with: pip install transformers torch"
-            )
+            ) from None
     
     def generate(self, 
                 prompt: str,
-                system_prompt: Optional[str] = None,
-                max_tokens: Optional[int] = None,
-                temperature: Optional[float] = None) -> Dict[str, Any]:
+                system_prompt: str | None = None,
+                max_tokens: int | None = None,
+                temperature: float | None = None) -> dict[str, Any]:
         """Generate response using HuggingFace model."""
         # Combine system prompt and user prompt
         full_prompt = prompt
@@ -279,7 +292,7 @@ class HuggingFaceProvider(LLMProvider):
                 }
             }
         except Exception as e:
-            raise CogniDBError(f"HuggingFace generation error: {str(e)}")
+            raise CogniDBError(f"HuggingFace generation error: {str(e)}") from e
     
     def _has_gpu(self) -> bool:
         """Check if GPU is available."""
@@ -327,14 +340,18 @@ class LocalProvider(LLMProvider):
         except ImportError:
             raise CogniDBError(
                 "llama-cpp-python required. Install with: pip install llama-cpp-python"
-            )
+            ) from None
     
     def _init_transformers(self):
         """Initialize transformers model."""
         try:
             from transformers import AutoModelForCausalLM, AutoTokenizer
-            self.tokenizer = AutoTokenizer.from_pretrained(self.config.local_model_path)
-            self.model = AutoModelForCausalLM.from_pretrained(
+            # B615: local_model_path is an operator-supplied local filesystem path,
+            # so from_pretrained loads from disk, not an unpinned Hub download.
+            self.tokenizer = AutoTokenizer.from_pretrained(  # nosec B615
+                self.config.local_model_path
+            )
+            self.model = AutoModelForCausalLM.from_pretrained(  # nosec B615
                 self.config.local_model_path,
                 device_map="auto"
             )
@@ -342,13 +359,13 @@ class LocalProvider(LLMProvider):
         except ImportError:
             raise CogniDBError(
                 "transformers package required. Install with: pip install transformers torch"
-            )
+            ) from None
     
     def generate(self, 
                 prompt: str,
-                system_prompt: Optional[str] = None,
-                max_tokens: Optional[int] = None,
-                temperature: Optional[float] = None) -> Dict[str, Any]:
+                system_prompt: str | None = None,
+                max_tokens: int | None = None,
+                temperature: float | None = None) -> dict[str, Any]:
         """Generate response using local model."""
         if self.model_type == 'llamacpp':
             return self._generate_llamacpp(prompt, system_prompt, max_tokens, temperature)
@@ -379,7 +396,7 @@ class LocalProvider(LLMProvider):
                 }
             }
         except Exception as e:
-            raise CogniDBError(f"Local model generation error: {str(e)}")
+            raise CogniDBError(f"Local model generation error: {str(e)}") from e
     
     def _generate_transformers(self, prompt, system_prompt, max_tokens, temperature):
         """Generate using transformers."""
@@ -415,4 +432,4 @@ class LocalProvider(LLMProvider):
                 }
             }
         except Exception as e:
-            raise CogniDBError(f"Local model generation error: {str(e)}")
+            raise CogniDBError(f"Local model generation error: {str(e)}") from e

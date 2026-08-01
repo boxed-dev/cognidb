@@ -4,7 +4,8 @@ from __future__ import annotations
 
 import re
 import statistics
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Set, Tuple
+from collections.abc import Iterable, Sequence
+from typing import Any
 
 import sqlparse
 from sqlparse.sql import Identifier, IdentifierList, Token
@@ -45,12 +46,12 @@ def _cell(value: Any) -> Any:
 
 
 def normalize_rows(
-    rows: Sequence[Dict[str, Any]],
+    rows: Sequence[dict[str, Any]],
     *,
     sort_rows: bool = True,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """Normalize result rows for order-tolerant comparison when safe."""
-    out: List[Dict[str, Any]] = []
+    out: list[dict[str, Any]] = []
     for row in rows:
         if not isinstance(row, dict):
             out.append({"_value": _cell(row)})
@@ -58,7 +59,7 @@ def normalize_rows(
         cleaned = {str(k): _cell(v) for k, v in row.items()}
         out.append(cleaned)
     if sort_rows and out:
-        def sort_key(r: Dict[str, Any]) -> Tuple:
+        def sort_key(r: dict[str, Any]) -> tuple:
             keys = sorted(r.keys())
             return tuple((k, repr(r.get(k))) for k in keys)
 
@@ -67,8 +68,8 @@ def normalize_rows(
 
 
 def result_match(
-    expected: Sequence[Dict[str, Any]],
-    actual: Sequence[Dict[str, Any]],
+    expected: Sequence[dict[str, Any]],
+    actual: Sequence[dict[str, Any]],
     *,
     ordered: bool = False,
 ) -> bool:
@@ -77,7 +78,7 @@ def result_match(
     return exp == act
 
 
-def _collect_identifiers(token: Token, names: Set[str]) -> None:
+def _collect_identifiers(token: Token, names: set[str]) -> None:
     if isinstance(token, IdentifierList):
         for child in token.get_identifiers():
             _collect_identifiers(child, names)
@@ -91,10 +92,10 @@ def _collect_identifiers(token: Token, names: Set[str]) -> None:
         names.add(str(token.value).lower())
 
 
-def extract_table_column_hints(sql: str) -> Tuple[Set[str], Set[str]]:
+def extract_table_column_hints(sql: str) -> tuple[set[str], set[str]]:
     """Best-effort table/column name sets for soft match (not a full parser)."""
-    tables: Set[str] = set()
-    columns: Set[str] = set()
+    tables: set[str] = set()
+    columns: set[str] = set()
     parsed = sqlparse.parse(sql)
     if not parsed:
         return tables, columns
@@ -156,7 +157,7 @@ def soft_match(expected_sql: str, actual_sql: str) -> bool:
     return et.issubset(at) or at.issubset(et)
 
 
-def percentile(values: Sequence[float], p: float) -> Optional[float]:
+def percentile(values: Sequence[float], p: float) -> float | None:
     if not values:
         return None
     if len(values) == 1:
@@ -174,7 +175,7 @@ def percentile(values: Sequence[float], p: float) -> Optional[float]:
     return ordered[f] + (ordered[c] - ordered[f]) * (k - f)
 
 
-def latency_stats(ms: Iterable[float]) -> Dict[str, Optional[float]]:
+def latency_stats(ms: Iterable[float]) -> dict[str, float | None]:
     data = list(ms)
     if not data:
         return {"count": 0, "p50_ms": None, "p95_ms": None, "mean_ms": None}

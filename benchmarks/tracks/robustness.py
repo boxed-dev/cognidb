@@ -4,19 +4,18 @@ from __future__ import annotations
 
 import time
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-from cognidb.schema.linking import link_schema
-from cognidb.security import StatementMode, StatementPolicy
+from typing import Any
 
 from benchmarks.metrics import latency_stats
 from benchmarks.pipeline_factory import load_commerce_driver, make_pipeline
 from benchmarks.runner import load_jsonl
 from benchmarks.types import CaseResult, TrackReport, score_of
+from cognidb.schema.linking import link_schema
+from cognidb.security import StatementMode, StatementPolicy
 
 
-def _large_schema(n_tables: int) -> Dict[str, Any]:
-    schema: Dict[str, Any] = {}
+def _large_schema(n_tables: int) -> dict[str, Any]:
+    schema: dict[str, Any] = {}
     for i in range(n_tables):
         name = f"entity_{i:03d}"
         schema[name] = {
@@ -34,14 +33,14 @@ def _large_schema(n_tables: int) -> Dict[str, Any]:
 def run_robustness_track(
     path: Path,
     *,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     seed: int = 42,
 ) -> TrackReport:
     del seed
     cases = load_jsonl(path, limit=limit)
     driver = load_commerce_driver()
-    results: List[CaseResult] = []
-    latencies: List[float] = []
+    results: list[CaseResult] = []
+    latencies: list[float] = []
 
     try:
         for case in cases:

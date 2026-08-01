@@ -8,7 +8,7 @@ long_description = (this_directory / "Readme.md").read_text(encoding="utf-8")
 
 setup(
     name="cognidb",
-    version="3.0.1",
+    version="4.0.0",
     author="Rishabh Kumar",
     author_email="rishabh.vaaiv@gmail.com",
     description="Secure Natural Language Database Interface",
@@ -23,13 +23,14 @@ setup(
         "Topic :: Software Development :: Libraries :: Python Modules",
         "License :: OSI Approved :: MIT License",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
+        "Programming Language :: Python :: 3.13",
     ],
-    python_requires=">=3.9",
+    python_requires=">=3.10",
     install_requires=[
+        "sqlglot>=25.0.0",
         "sqlparse>=0.4.4",
         "pyyaml>=6.0.1",
         "python-dotenv>=1.0.0",

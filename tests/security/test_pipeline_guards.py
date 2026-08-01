@@ -25,12 +25,16 @@ class _FakeDriver:
 
 
 def _pipe(sql: str) -> SecureQueryPipeline:
+    # These tests exercise the raw-SQL enforcement path, so use free-form (opt-in).
     return SecureQueryPipeline(
         driver=_FakeDriver(),
         generator=_FakeGen(sql),
         validator=QuerySecurityValidator(),
         sanitizer=InputSanitizer(),
         schema={"users": {"columns": {"id": {"type": "int"}}}},
+        dialect="sqlite",
+        generation_mode="free_form",
+        allow_dangerous_sql=True,
         enable_audit=False,
     )
 

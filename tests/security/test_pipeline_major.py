@@ -36,6 +36,8 @@ def _pipe(sql, *, policy=None, access=None, enable_ac=False, gen=None, drv=None,
         enable_access_control=enable_ac,
         enable_audit=False,
         policy=policy or StatementPolicy(),
+        generation_mode="free_form",
+        allow_dangerous_sql=True,
         repair_budget=1,
     )
 

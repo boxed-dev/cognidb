@@ -1,8 +1,10 @@
 """Query intent representation - database agnostic query structure."""
 
+from __future__ import annotations
+
 from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import List, Optional, Dict, Any, Union
+from typing import Any
 
 
 class QueryType(Enum):
@@ -60,8 +62,8 @@ class JoinType(Enum):
 class Column:
     """Represents a column reference."""
     name: str
-    table: Optional[str] = None
-    alias: Optional[str] = None
+    table: str | None = None
+    alias: str | None = None
     
     def __str__(self) -> str:
         if self.table:
@@ -89,10 +91,10 @@ class Condition:
 @dataclass
 class ConditionGroup:
     """Group of conditions with logical operator."""
-    conditions: List[Union[Condition, 'ConditionGroup']]
+    conditions: list[Condition | ConditionGroup]
     operator: LogicalOperator = LogicalOperator.AND
     
-    def add_condition(self, condition: Union[Condition, 'ConditionGroup']):
+    def add_condition(self, condition: Condition | ConditionGroup):
         """Add a condition to the group."""
         self.conditions.append(condition)
 
@@ -105,7 +107,7 @@ class JoinCondition:
     right_table: str
     left_column: str
     right_column: str
-    additional_conditions: Optional[ConditionGroup] = None
+    additional_conditions: ConditionGroup | None = None
 
 
 @dataclass
@@ -113,7 +115,7 @@ class Aggregation:
     """Represents an aggregation operation."""
     function: AggregateFunction
     column: Column
-    alias: Optional[str] = None
+    alias: str | None = None
     
     def __str__(self) -> str:
         return f"{self.function.value}({self.column})"
@@ -136,24 +138,24 @@ class QueryIntent:
     database-specific queries.
     """
     query_type: QueryType
-    tables: List[str]
-    columns: List[Column] = field(default_factory=list)
-    conditions: Optional[ConditionGroup] = None
-    joins: List[JoinCondition] = field(default_factory=list)
-    aggregations: List[Aggregation] = field(default_factory=list)
-    group_by: List[Column] = field(default_factory=list)
-    having: Optional[ConditionGroup] = None
-    order_by: List[OrderBy] = field(default_factory=list)
-    limit: Optional[int] = None
-    offset: Optional[int] = None
+    tables: list[str]
+    columns: list[Column] = field(default_factory=list)
+    conditions: ConditionGroup | None = None
+    joins: list[JoinCondition] = field(default_factory=list)
+    aggregations: list[Aggregation] = field(default_factory=list)
+    group_by: list[Column] = field(default_factory=list)
+    having: ConditionGroup | None = None
+    order_by: list[OrderBy] = field(default_factory=list)
+    limit: int | None = None
+    offset: int | None = None
     distinct: bool = False
     # INSERT payload: dict keyed by column name, or ordered sequence matching columns
-    values: Optional[Any] = None
+    values: Any | None = None
     
     # Metadata for optimization and caching
-    natural_language_query: Optional[str] = None
-    estimated_cost: Optional[float] = None
-    cache_ttl: Optional[int] = None  # seconds
+    natural_language_query: str | None = None
+    estimated_cost: float | None = None
+    cache_ttl: int | None = None  # seconds
     
     def __post_init__(self):
         """Validate query intent."""
@@ -185,7 +187,7 @@ class QueryIntent:
         if self.having and not self.group_by:
             raise ValueError("HAVING clause requires GROUP BY")
     
-    def add_column(self, column: Union[str, Column]):
+    def add_column(self, column: str | Column):
         """Add a column to select."""
         if isinstance(column, str):
             column = Column(column)
@@ -215,13 +217,15 @@ class QueryIntent:
         self.limit = limit
         self.offset = offset
     
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary for serialization."""
         return {
             'query_type': self.query_type.name,
             'tables': self.tables,
             'columns': [str(col) for col in self.columns],
-            'conditions': self._condition_group_to_dict(self.conditions) if self.conditions else None,
+            'conditions': (
+                self._condition_group_to_dict(self.conditions) if self.conditions else None
+            ),
             'joins': [self._join_to_dict(j) for j in self.joins],
             'aggregations': [str(agg) for agg in self.aggregations],
             'group_by': [str(col) for col in self.group_by],
@@ -233,7 +237,7 @@ class QueryIntent:
             'natural_language_query': self.natural_language_query
         }
     
-    def _condition_group_to_dict(self, group: ConditionGroup) -> Dict[str, Any]:
+    def _condition_group_to_dict(self, group: ConditionGroup) -> dict[str, Any]:
         """Convert condition group to dict."""
         return {
             'operator': group.operator.value,
@@ -244,7 +248,7 @@ class QueryIntent:
             ]
         }
     
-    def _condition_to_dict(self, condition: Condition) -> Dict[str, Any]:
+    def _condition_to_dict(self, condition: Condition) -> dict[str, Any]:
         """Convert condition to dict."""
         return {
             'column': str(condition.column),
@@ -252,7 +256,7 @@ class QueryIntent:
             'value': condition.value
         }
     
-    def _join_to_dict(self, join: JoinCondition) -> Dict[str, Any]:
+    def _join_to_dict(self, join: JoinCondition) -> dict[str, Any]:
         """Convert join to dict."""
         return {
             'type': join.join_type.value,

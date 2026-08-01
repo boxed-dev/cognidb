@@ -1,119 +1,74 @@
-"""Extract column references from SQL for allowlist checks (ADR 0005)."""
+"""Extract column references from SQL for allowlist checks (ADR 0005).
+
+Backed entirely by :func:`cognidb.security.sql_guard.analyze` — the single AST
+source of truth — so there is exactly one parser and no bypassable regex. A
+permissive operation superset is used purely so extraction never gates on the
+operation; the real gating happens in the validator/pipeline.
+"""
 
 from __future__ import annotations
 
-import re
-from typing import Dict, List, Tuple
+from . import sql_guard
+
+# Permissive superset: extraction must work for any read/write shape without
+# rejecting on operation. Security gating is enforced elsewhere by the guard.
+_ALL_OPERATIONS = frozenset({"SELECT", "INSERT", "UPDATE", "DELETE", "MERGE"})
 
 
-def extract_columns(sql: str) -> List[str]:
+def extract_columns(sql: str, dialect: str | None = None) -> list[str]:
     """
-    Extract projected / declared column names (lowercased).
+    Flat list of referenced column names (lowercased) across all tables.
 
-    SELECT * yields ``['*']``. INSERT without an explicit column list also
-    yields ``['*']`` so allowlists can fail closed.
+    ``SELECT *`` yields ``["*"]``. Unparseable or non-analyzable SQL fails
+    closed to ``[]``.
     """
-    sql = (sql or "").strip()
-    if not sql:
+    by_table = _columns_by_table(sql, dialect)
+    if not by_table:
         return []
-
-    op_m = re.match(r"^\s*(SELECT|INSERT|UPDATE|DELETE)\b", sql, re.IGNORECASE)
-    if not op_m:
-        return []
-
-    op = op_m.group(1).upper()
-    if op == "SELECT":
-        return _select_columns(sql)
-    if op == "INSERT":
-        return _insert_columns(sql)
-    return []
+    out: list[str] = []
+    for cols in by_table.values():
+        for col in cols:
+            if col not in out:
+                out.append(col)
+    return out
 
 
-def extract_columns_by_table(sql: str, tables: List[str]) -> Dict[str, List[str]]:
+def extract_columns_by_table(
+    sql: str, tables: list[str], dialect: str | None = None
+) -> dict[str, list[str]]:
     """
-    Map each table to columns for allowlist checks.
+    Map each requested table to the columns the guard attributed to it.
 
-    Single-table queries attribute all projected columns to that table.
-    Multi-table queries use qualified ``table.col`` refs when present;
-    otherwise every table is checked against the full projection (fail-closed).
+    Qualified columns are attributed precisely; ``SELECT *`` surfaces ``"*"`` so
+    a column allowlist can fail closed. Unparseable SQL yields an empty column
+    list per table.
     """
-    cols = extract_columns(sql)
     if not tables:
         return {}
-    if len(tables) == 1:
-        return {tables[0]: cols}
-
-    result: Dict[str, List[str]] = {t: [] for t in tables}
-    qualified = _qualified_select_columns(sql)
-    if qualified:
-        for table, col in qualified:
-            if table in result:
-                result[table].append(col)
-            else:
-                for t in tables:
-                    result[t].append(col)
-        return result
-
-    for t in tables:
-        result[t] = list(cols)
-    return result
+    by_table = _columns_by_table(sql, dialect)
+    if by_table is None:
+        return {table: [] for table in tables}
+    return {table: list(_lookup(by_table, table)) for table in tables}
 
 
-def _select_columns(sql: str) -> List[str]:
-    m = re.search(
-        r"\bSELECT\s+(?:DISTINCT\s+)?(.+?)\s+FROM\b",
-        sql,
-        re.IGNORECASE | re.DOTALL,
-    )
-    if not m:
-        return []
-    proj = m.group(1).strip()
-    if proj == "*":
-        return ["*"]
-    out: List[str] = []
-    for part in proj.split(","):
-        part = re.sub(r"\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$", "", part, flags=re.IGNORECASE)
-        part = part.strip().strip('`"[]')
-        if not part:
-            continue
-        if "." in part:
-            part = part.split(".")[-1].strip().strip('`"[]')
-        out.append("*" if part == "*" else part.lower())
-    return out
-
-
-def _insert_columns(sql: str) -> List[str]:
-    m = re.search(
-        r"\bINSERT\s+INTO\s+[A-Za-z_][A-Za-z0-9_]*\s*\(([^)]+)\)",
-        sql,
-        re.IGNORECASE,
-    )
-    if not m:
-        return ["*"]
-    return [
-        c.strip().strip('`"[]').lower()
-        for c in m.group(1).split(",")
-        if c.strip()
-    ]
-
-
-def _qualified_select_columns(sql: str) -> List[Tuple[str, str]]:
-    m = re.search(
-        r"\bSELECT\s+(?:DISTINCT\s+)?(.+?)\s+FROM\b",
-        sql,
-        re.IGNORECASE | re.DOTALL,
-    )
-    if not m:
-        return []
-    out: List[Tuple[str, str]] = []
-    for part in m.group(1).split(","):
-        part = re.sub(r"\s+AS\s+[A-Za-z_][A-Za-z0-9_]*$", "", part, flags=re.IGNORECASE)
-        part = part.strip().strip('`"[]')
-        qm = re.match(
-            r"^([A-Za-z_][A-Za-z0-9_]*)\s*\.\s*([A-Za-z_][A-Za-z0-9_]*|\*)$",
-            part,
+def _columns_by_table(
+    sql: str, dialect: str | None
+) -> dict[str, tuple[str, ...]] | None:
+    """Return the guard's ``columns_by_table`` or ``None`` on any GuardError."""
+    try:
+        result = sql_guard.analyze(
+            sql, dialect=dialect, allowed_operations=_ALL_OPERATIONS
         )
-        if qm:
-            col = qm.group(2)
-            out.append((qm.group(1).lower(), "*" if col == "*" else col.lower()))
-    return out
+    except sql_guard.GuardError:
+        return None
+    return result.columns_by_table
+
+
+def _lookup(by_table: dict[str, tuple[str, ...]], table: str) -> tuple[str, ...]:
+    """Match a base table name against guard keys (which may be schema-qualified)."""
+    if table in by_table:
+        return by_table[table]
+    for key, cols in by_table.items():
+        if key.rsplit(".", 1)[-1] == table:
+            return cols
+    return ()

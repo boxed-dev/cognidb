@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import Any, Dict, List
+from typing import Any
 
 
 @dataclass
@@ -13,9 +13,9 @@ class CaseResult:
     track: str
     passed: bool
     detail: str = ""
-    meta: Dict[str, Any] = field(default_factory=dict)
+    meta: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return asdict(self)
 
 
@@ -26,10 +26,10 @@ class TrackReport:
     passed: int
     failed: int
     score: float
-    cases: List[CaseResult] = field(default_factory=list)
-    extras: Dict[str, Any] = field(default_factory=dict)
+    cases: list[CaseResult] = field(default_factory=list)
+    extras: dict[str, Any] = field(default_factory=dict)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "name": self.name,
             "total": self.total,
@@ -43,7 +43,7 @@ class TrackReport:
 
 @dataclass
 class SuiteReport:
-    tracks: Dict[str, TrackReport]
+    tracks: dict[str, TrackReport]
     started_at: str
     finished_at: str
     duration_ms: float
@@ -59,8 +59,8 @@ class SuiteReport:
             return 0.0
         return round(sum(scores) / len(scores), 4)
 
-    def hard_failures(self) -> List[str]:
-        msgs: List[str] = []
+    def hard_failures(self) -> list[str]:
+        msgs: list[str] = []
         for name, tr in self.tracks.items():
             if name in ("security", "policy"):
                 for c in tr.cases:
@@ -68,7 +68,7 @@ class SuiteReport:
                         msgs.append(f"{name}:{c.id}: false accept")
         return msgs
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         return {
             "started_at": self.started_at,
             "finished_at": self.finished_at,
@@ -109,7 +109,7 @@ class SuiteReport:
             lines.append(f"  HARD FAILURES: {len(hard)}")
             for h in hard[:10]:
                 lines.append(f"    - {h}")
-        failures: List[CaseResult] = []
+        failures: list[CaseResult] = []
         for tr in self.tracks.values():
             failures.extend(c for c in tr.cases if not c.passed)
         if failures:

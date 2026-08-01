@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any
 
 from cognidb.ai.fake_generator import FakeIntentGenerator, FakeSQLGenerator
 from cognidb.core.query_intent import QueryIntent
@@ -22,10 +22,10 @@ SCHEMA_SQL = FIXURES_DIR / "commerce_schema.sql"
 SEED_SQL = FIXURES_DIR / "commerce_seed.sql"
 
 
-def _split_sql_script(script: str) -> List[str]:
+def _split_sql_script(script: str) -> list[str]:
     """Split fixture SQL on semicolons outside of simple string literals."""
-    statements: List[str] = []
-    buf: List[str] = []
+    statements: list[str] = []
+    buf: list[str] = []
     in_single = False
     i = 0
     while i < len(script):
@@ -73,18 +73,18 @@ def load_commerce_driver(
 def make_pipeline(
     *,
     driver: SQLiteDriver,
-    sql: Optional[str] = None,
-    repair_sql: Optional[str] = None,
-    intent: Optional[QueryIntent] = None,
+    sql: str | None = None,
+    repair_sql: str | None = None,
+    intent: QueryIntent | None = None,
     generation_mode: str = "free_form",
-    policy: Optional[StatementPolicy] = None,
-    access_controller: Optional[AccessController] = None,
+    policy: StatementPolicy | None = None,
+    access_controller: AccessController | None = None,
     enable_access_control: bool = False,
     enable_schema_linking: bool = True,
     schema_top_k: int = 8,
     max_schema_tables: int = 40,
     repair_budget: int = 1,
-    schema: Optional[Dict[str, Any]] = None,
+    schema: dict[str, Any] | None = None,
     enable_audit: bool = False,
 ) -> SecureQueryPipeline:
     """Construct a pipeline with FakeSQLGenerator / FakeIntentGenerator."""
@@ -109,13 +109,14 @@ def make_pipeline(
         max_schema_tables=max_schema_tables,
         repair_budget=repair_budget,
         generation_mode=generation_mode,
+        allow_dangerous_sql=True,
         enable_audit=enable_audit,
     )
 
 
 def make_access_controller(
     user_id: str,
-    table_permissions: Dict[str, Dict[str, Any]],
+    table_permissions: dict[str, dict[str, Any]],
 ) -> AccessController:
     ac = AccessController()
     ac.create_restricted_user(user_id, table_permissions)

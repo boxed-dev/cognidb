@@ -1,7 +1,10 @@
 """Core interfaces for CogniDB components."""
 
+from __future__ import annotations
+
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any
+
 from .query_intent import QueryIntent
 
 
@@ -19,7 +22,9 @@ class DatabaseDriver(ABC):
         pass
     
     @abstractmethod
-    def execute_native_query(self, query: str, params: Optional[Dict[str, Any]] = None) -> List[Dict[str, Any]]:
+    def execute_native_query(
+        self, query: str, params: dict[str, Any] | None = None
+    ) -> list[dict[str, Any]]:
         """
         Execute a native query with parameters.
         
@@ -33,7 +38,7 @@ class DatabaseDriver(ABC):
         pass
     
     @abstractmethod
-    def fetch_schema(self) -> Dict[str, Dict[str, str]]:
+    def fetch_schema(self) -> dict[str, dict[str, str]]:
         """
         Fetch database schema.
         
@@ -60,7 +65,7 @@ class DatabaseDriver(ABC):
         pass
     
     @abstractmethod
-    def get_connection_info(self) -> Dict[str, Any]:
+    def get_connection_info(self) -> dict[str, Any]:
         """Get connection information (for debugging, minus secrets)."""
         pass
     
@@ -81,7 +86,7 @@ class QueryTranslator(ABC):
     """Abstract base class for query translators."""
     
     @abstractmethod
-    def translate(self, query_intent: QueryIntent) -> Tuple[str, Dict[str, Any]]:
+    def translate(self, query_intent: QueryIntent) -> tuple[str, dict[str, Any]]:
         """
         Translate a QueryIntent into a native query.
         
@@ -94,7 +99,7 @@ class QueryTranslator(ABC):
         pass
     
     @abstractmethod
-    def validate_intent(self, query_intent: QueryIntent) -> List[str]:
+    def validate_intent(self, query_intent: QueryIntent) -> list[str]:
         """
         Validate that the query intent can be translated.
         
@@ -105,7 +110,7 @@ class QueryTranslator(ABC):
     
     @property
     @abstractmethod
-    def supported_features(self) -> Dict[str, bool]:
+    def supported_features(self) -> dict[str, bool]:
         """
         Return supported features for this translator.
         
@@ -124,7 +129,7 @@ class SecurityValidator(ABC):
     """Abstract base class for security validators."""
     
     @abstractmethod
-    def validate_query_intent(self, query_intent: QueryIntent) -> Tuple[bool, Optional[str]]:
+    def validate_query_intent(self, query_intent: QueryIntent) -> tuple[bool, str | None]:
         """
         Validate query intent for security issues.
         
@@ -134,7 +139,7 @@ class SecurityValidator(ABC):
         pass
     
     @abstractmethod
-    def validate_native_query(self, query: str) -> Tuple[bool, Optional[str]]:
+    def validate_native_query(self, query: str) -> tuple[bool, str | None]:
         """
         Validate native query for security issues.
         
@@ -155,7 +160,7 @@ class SecurityValidator(ABC):
     
     @property
     @abstractmethod
-    def allowed_operations(self) -> List[str]:
+    def allowed_operations(self) -> list[str]:
         """List of allowed query operations."""
         pass
 
@@ -164,7 +169,7 @@ class ResultNormalizer(ABC):
     """Abstract base class for result normalizers."""
     
     @abstractmethod
-    def normalize(self, raw_results: Any) -> List[Dict[str, Any]]:
+    def normalize(self, raw_results: Any) -> list[dict[str, Any]]:
         """
         Normalize database-specific results to standard format.
         
@@ -178,7 +183,7 @@ class ResultNormalizer(ABC):
     
     @abstractmethod
     def format_for_output(self, 
-                         normalized_results: List[Dict[str, Any]], 
+                         normalized_results: list[dict[str, Any]], 
                          output_format: str = 'json') -> Any:
         """
         Format normalized results for final output.
@@ -197,12 +202,12 @@ class CacheProvider(ABC):
     """Abstract base class for cache providers."""
     
     @abstractmethod
-    def get(self, key: str) -> Optional[Any]:
+    def get(self, key: str) -> Any | None:
         """Retrieve value from cache."""
         pass
     
     @abstractmethod
-    def set(self, key: str, value: Any, ttl: Optional[int] = None) -> bool:
+    def set(self, key: str, value: Any, ttl: int | None = None) -> bool:
         """
         Store value in cache.
         
@@ -227,6 +232,6 @@ class CacheProvider(ABC):
         pass
     
     @abstractmethod
-    def get_stats(self) -> Dict[str, Any]:
+    def get_stats(self) -> dict[str, Any]:
         """Get cache statistics."""
         pass

@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import json
 import time
+from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Sequence
+from typing import Any
 
 from benchmarks.types import SuiteReport, TrackReport, score_of
 
@@ -26,7 +27,7 @@ class BenchmarkRunner:
     def __init__(
         self,
         *,
-        data_dir: Optional[Path] = None,
+        data_dir: Path | None = None,
         smoke: bool = False,
         smoke_limit: int = 5,
         seed: int = 42,
@@ -46,7 +47,7 @@ class BenchmarkRunner:
         selected = self._normalize_tracks(tracks)
         started = time.perf_counter()
         started_at = datetime.now(timezone.utc).isoformat()
-        reports: Dict[str, TrackReport] = {}
+        reports: dict[str, TrackReport] = {}
         limit = self.smoke_limit if self.smoke else None
 
         dispatch = {
@@ -90,7 +91,7 @@ class BenchmarkRunner:
         self,
         report: SuiteReport,
         *,
-        reports_dir: Optional[Path] = None,
+        reports_dir: Path | None = None,
         prefix: str = "report",
     ) -> Path:
         out_dir = Path(reports_dir) if reports_dir else REPORTS_DIR
@@ -104,10 +105,10 @@ class BenchmarkRunner:
         return path
 
     @staticmethod
-    def _normalize_tracks(tracks: Sequence[str]) -> List[str]:
+    def _normalize_tracks(tracks: Sequence[str]) -> list[str]:
         if not tracks or "all" in tracks:
             return list(TRACKS)
-        out: List[str] = []
+        out: list[str] = []
         for t in tracks:
             t = t.strip().lower()
             if t == "all":
@@ -119,8 +120,8 @@ class BenchmarkRunner:
         return out
 
 
-def load_jsonl(path: Path, *, limit: Optional[int] = None) -> List[Dict[str, Any]]:
-    rows: List[Dict[str, Any]] = []
+def load_jsonl(path: Path, *, limit: int | None = None) -> list[dict[str, Any]]:
+    rows: list[dict[str, Any]] = []
     text = path.read_text(encoding="utf-8")
     for line in text.splitlines():
         line = line.strip()

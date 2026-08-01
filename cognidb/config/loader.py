@@ -1,14 +1,27 @@
 """Configuration loader with multiple source support."""
 
-import os
+from __future__ import annotations
+
 import json
-import yaml
+import os
+import re
 from pathlib import Path
-from typing import Dict, Any, Optional, List
-from .settings import Settings, DatabaseConfig, LLMConfig, CacheConfig, SecurityConfig
-from .settings import DatabaseType, LLMProvider, CacheProvider
-from .secrets import SecretsManager
+from typing import Any
+
+import yaml
+
 from ..core.exceptions import ConfigurationError
+from .secrets import SecretsManager
+from .settings import (
+    CacheConfig,
+    CacheProvider,
+    DatabaseConfig,
+    DatabaseType,
+    LLMConfig,
+    LLMProvider,
+    SecurityConfig,
+    Settings,
+)
 
 
 class ConfigLoader:
@@ -20,10 +33,14 @@ class ConfigLoader:
     2. Config file (JSON/YAML)
     3. Defaults
     """
-    
+
+    # Matches explicit ``${VAR}`` placeholders in loaded string values.
+    _ENV_VAR_PATTERN = re.compile(r'\$\{([A-Za-z_][A-Za-z0-9_]*)\}')
+
+
     def __init__(self, 
-                 config_file: Optional[str] = None,
-                 secrets_manager: Optional[SecretsManager] = None):
+                 config_file: str | None = None,
+                 secrets_manager: SecretsManager | None = None):
         """
         Initialize config loader.
         
@@ -33,7 +50,7 @@ class ConfigLoader:
         """
         self.config_file = config_file or self._find_config_file()
         self.secrets_manager = secrets_manager or SecretsManager()
-        self._config_data: Dict[str, Any] = {}
+        self._config_data: dict[str, Any] = {}
     
     def load(self) -> Settings:
         """
@@ -62,7 +79,7 @@ class ConfigLoader:
         
         return settings
     
-    def _find_config_file(self) -> Optional[str]:
+    def _find_config_file(self) -> str | None:
         """Find configuration file in standard locations."""
         # Check environment variable
         if 'COGNIDB_CONFIG' in os.environ:
@@ -91,15 +108,46 @@ class ConfigLoader:
         return None
     
     def _load_from_file(self) -> None:
-        """Load configuration from file."""
+        """Load configuration from file, expanding ``${ENV_VAR}`` placeholders."""
         try:
-            with open(self.config_file, 'r') as f:
+            with open(self.config_file) as f:
                 if self.config_file.endswith(('.yaml', '.yml')):
-                    self._config_data = yaml.safe_load(f)
+                    raw = yaml.safe_load(f)
                 else:
-                    self._config_data = json.load(f)
+                    raw = json.load(f)
         except Exception as e:
-            raise ConfigurationError(f"Failed to load config file: {e}")
+            raise ConfigurationError(f"Failed to load config file: {e}") from e
+
+        # Resolve ${ENV_VAR} references after parsing so an unset variable
+        # raises a clear ConfigurationError (never a silent placeholder).
+        self._config_data = self._expand_env_vars(raw or {})
+
+    def _expand_env_vars(self, value: Any) -> Any:
+        """Recursively expand ``${VAR}`` placeholders in string values only.
+
+        Raises:
+            ConfigurationError: if a referenced environment variable is unset.
+        """
+        if isinstance(value, dict):
+            return {k: self._expand_env_vars(v) for k, v in value.items()}
+        if isinstance(value, list):
+            return [self._expand_env_vars(item) for item in value]
+        if isinstance(value, str):
+            return self._expand_str(value)
+        return value
+
+    def _expand_str(self, value: str) -> str:
+        """Substitute every ``${VAR}`` in ``value`` from the environment."""
+        def _replace(match: re.Match[str]) -> str:
+            name = match.group(1)
+            if name not in os.environ:
+                raise ConfigurationError(
+                    f"Environment variable '{name}' referenced in configuration "
+                    f"is not set"
+                )
+            return os.environ[name]
+
+        return self._ENV_VAR_PATTERN.sub(_replace, value)
     
     def _load_from_env(self) -> None:
         """Load configuration from environment variables."""

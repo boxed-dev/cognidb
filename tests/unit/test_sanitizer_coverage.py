@@ -20,16 +20,3 @@ def test_sanitize_identifier():
     assert InputSanitizer.sanitize_identifier("bad-name!") == "badname"
     with pytest.raises(ValueError):
         InputSanitizer.sanitize_identifier("")
-
-
-def test_sanitize_string_and_numeric():
-    s = InputSanitizer.sanitize_string_value("O'Reilly")
-    assert isinstance(s, str)
-    assert InputSanitizer.sanitize_numeric_value(42) == 42
-    assert InputSanitizer.sanitize_numeric_value("3.5") == 3.5
-    assert InputSanitizer.sanitize_list_value([1, 2], InputSanitizer.sanitize_numeric_value) == [
-        1,
-        2,
-    ]
-    d = InputSanitizer.sanitize_dict_value({"a": "x", "b": 1})
-    assert "a" in d

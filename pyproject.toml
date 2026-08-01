@@ -4,10 +4,10 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "cognidb"
-version = "3.0.1"
+version = "4.0.0"
 description = "Secure Natural Language Database Interface"
 readme = "Readme.md"
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 license = { text = "MIT" }
 authors = [{ name = "Rishabh Kumar", email = "rishabh.vaaiv@gmail.com" }]
 keywords = ["database", "sql", "nl2sql", "llm", "security", "nlp"]
@@ -15,9 +15,14 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "License :: OSI Approved :: MIT License",
   "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
   "Topic :: Database",
 ]
 dependencies = [
+  "sqlglot>=25.0.0",
   "sqlparse>=0.4.4",
   "pyyaml>=6.0.1",
   "python-dotenv>=1.0.0",
@@ -33,6 +38,13 @@ dev = ["pytest>=7.4.0", "pytest-cov>=4.1.0", "pytest-mock>=3.11.0"]
 redis = ["redis>=5.0.0"]
 mongo = ["pymongo>=4.6.0"]
 
+# PEP 735 dependency groups for the CI tool gates (installable with
+# `pip install --group lint --group typing --group security`).
+[dependency-groups]
+lint = ["ruff>=0.6"]
+typing = ["mypy>=1.10"]
+security = ["bandit>=1.7", "pip-audit>=2.7"]
+
 [project.urls]
 Homepage = "https://github.com/boxed-dev/cognidb"
 Repository = "https://github.com/boxed-dev/cognidb"
@@ -46,16 +58,19 @@ exclude = ["tests*"]
 testpaths = ["tests"]
 pythonpath = ["."]
 
-# Coverage gate (Epic 0):
-#   pytest --cov=cognidb.security --cov=cognidb.pipeline --cov-fail-under=70
-# Line coverage (not branch) so Protocol stubs / legacy helpers do not tank the gate.
+# Coverage: the whole package is reported for visibility, but the CI GATE is
+# scoped to the security-critical, offline-testable surface at 80% (see ci.yml).
+# The AI-provider / live-DB-driver paths need credentials/servers to exercise.
+#   gate: pytest --cov=cognidb.security --cov=cognidb.pipeline --cov=cognidb.intent \
+#               --cov=cognidb.core --cov-fail-under=80
 [tool.coverage.run]
 branch = false
-source = ["cognidb/security", "cognidb/pipeline"]
+source = ["cognidb"]
 omit = ["*/tests/*"]
 
 [tool.coverage.report]
-fail_under = 70
+# No auto fail_under here — gating is explicit in CI so the visibility report
+# (full package) never fails the run on its own.
 show_missing = true
 skip_empty = true
 exclude_lines = [
@@ -63,3 +78,29 @@ exclude_lines = [
   "if TYPE_CHECKING:",
   "raise NotImplementedError",
 ]
+
+[tool.ruff]
+target-version = "py310"
+line-length = 100
+
+[tool.ruff.lint]
+# E/F: pycodestyle+pyflakes correctness, I: import sorting, B: bugbear,
+# UP: pyupgrade (modern typing), S: bandit-style security lints.
+select = ["E", "F", "I", "B", "UP", "S"]
+
+[tool.ruff.lint.per-file-ignores]
+# `assert` is the idiomatic pytest assertion mechanism, not a security issue.
+"tests/**" = ["S101"]
+
+[tool.bandit]
+# Test fixtures and offline benchmarks deliberately use asserts and sample
+# credentials; scan only the shipped library surface.
+exclude_dirs = ["tests", "benchmarks"]
+
+[tool.mypy]
+python_version = "3.10"
+ignore_missing_imports = true
+warn_unused_ignores = false
+# CI type-checks only the new security-critical modules; imported legacy code is
+# used for type info but its own findings are not gated here.
+follow_imports = "silent"

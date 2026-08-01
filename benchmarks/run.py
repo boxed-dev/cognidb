@@ -7,10 +7,9 @@ import json
 import logging
 import os
 import sys
-from typing import List, Optional, Sequence
+from collections.abc import Sequence
 
-from benchmarks.runner import TRACKS, BenchmarkRunner
-from benchmarks.types import SuiteReport
+from benchmarks.runner import BenchmarkRunner
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -71,13 +70,13 @@ def build_parser() -> argparse.ArgumentParser:
     return p
 
 
-def _resolve_tracks(raw: Optional[Sequence[str]]) -> List[str]:
+def _resolve_tracks(raw: Sequence[str] | None) -> list[str]:
     if not raw:
         return ["all"]
     return list(raw)
 
 
-def main(argv: Optional[Sequence[str]] = None) -> int:
+def main(argv: Sequence[str] | None = None) -> int:
     logging.basicConfig(level=logging.WARNING)
     # Expected fail-path noise (bad repair SQL, rejected statements) is not a suite signal.
     logging.getLogger("cognidb").setLevel(logging.CRITICAL)

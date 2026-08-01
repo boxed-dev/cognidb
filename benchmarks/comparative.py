@@ -10,7 +10,7 @@ Enable exploratory work with COGNIDB_BENCH_LIVE=1 after implementing adapters.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, Protocol
+from typing import Any, Protocol
 
 
 class TextToSQLSystem(Protocol):
@@ -18,7 +18,7 @@ class TextToSQLSystem(Protocol):
 
     name: str
 
-    def generate_sql(self, question: str, schema: Dict[str, Any]) -> str: ...
+    def generate_sql(self, question: str, schema: dict[str, Any]) -> str: ...
 
 
 @dataclass
@@ -26,7 +26,7 @@ class ComparativeCase:
     id: str
     question: str
     expected_sql: str
-    schema: Dict[str, Any]
+    schema: dict[str, Any]
 
 
 @dataclass
@@ -42,18 +42,18 @@ class OfflineStubSystem:
 
     name = "offline_stub"
 
-    def generate_sql(self, question: str, schema: Dict[str, Any]) -> str:
+    def generate_sql(self, question: str, schema: dict[str, Any]) -> str:
         del question, schema
         return ""
 
 
 def run_comparative_stub(
-    cases: List[ComparativeCase],
-    systems: Optional[List[TextToSQLSystem]] = None,
-) -> List[ComparativeResult]:
+    cases: list[ComparativeCase],
+    systems: list[TextToSQLSystem] | None = None,
+) -> list[ComparativeResult]:
     """Run offline stubs; does not score competitors."""
     systems = systems or [OfflineStubSystem()]
-    out: List[ComparativeResult] = []
+    out: list[ComparativeResult] = []
     for system in systems:
         for case in cases:
             sql = system.generate_sql(case.question, case.schema)

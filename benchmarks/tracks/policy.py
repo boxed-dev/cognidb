@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-from cognidb.security import StatementMode, StatementPolicy
+from typing import Any
 
 from benchmarks.pipeline_factory import (
     load_commerce_driver,
@@ -14,9 +12,10 @@ from benchmarks.pipeline_factory import (
 )
 from benchmarks.runner import load_jsonl
 from benchmarks.types import CaseResult, TrackReport, score_of
+from cognidb.security import StatementMode, StatementPolicy
 
 
-def _policy_from_case(case: Dict[str, Any]) -> StatementPolicy:
+def _policy_from_case(case: dict[str, Any]) -> StatementPolicy:
     mode = (case.get("mode") or "read").lower()
     allow_multi = bool(case.get("allow_multi_statement", False))
     sm = StatementMode.WRITE if mode == "write" else StatementMode.READ
@@ -26,13 +25,13 @@ def _policy_from_case(case: Dict[str, Any]) -> StatementPolicy:
 def run_policy_track(
     path: Path,
     *,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     seed: int = 42,
 ) -> TrackReport:
     del seed
     cases = load_jsonl(path, limit=limit)
     driver = load_commerce_driver()
-    results: List[CaseResult] = []
+    results: list[CaseResult] = []
     false_accepts = 0
 
     try:
@@ -65,7 +64,7 @@ def run_policy_track(
             )
 
             use_override = bool(case.get("sql_override", False))
-            kwargs: Dict[str, Any] = {}
+            kwargs: dict[str, Any] = {}
             if user_id:
                 kwargs["user_id"] = user_id
             if use_override:

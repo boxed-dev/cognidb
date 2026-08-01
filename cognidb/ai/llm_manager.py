@@ -1,18 +1,20 @@
 """LLM manager with multi-provider support and cost tracking."""
 
+from __future__ import annotations
+
 import time
-from typing import Dict, Any, Optional, List, Union
-from abc import ABC, abstractmethod
 from dataclasses import dataclass
+from typing import Any
+
 from ..config.settings import LLMConfig, LLMProvider
 from ..core.exceptions import CogniDBError, RateLimitError
 from .cost_tracker import CostTracker
 from .providers import (
-    OpenAIProvider,
     AnthropicProvider,
     AzureOpenAIProvider,
     HuggingFaceProvider,
-    LocalProvider
+    LocalProvider,
+    OpenAIProvider,
 )
 
 
@@ -22,7 +24,7 @@ class LLMResponse:
     content: str
     model: str
     provider: str
-    usage: Dict[str, int]
+    usage: dict[str, int]
     cost: float
     latency: float
     cached: bool = False
@@ -63,14 +65,14 @@ class LLMManager:
             )
         
         # Rate limiting
-        self._request_times: List[float] = []
+        self._request_times: list[float] = []
         self._last_request_time = 0
     
     def generate(self, 
                  prompt: str,
-                 system_prompt: Optional[str] = None,
-                 max_tokens: Optional[int] = None,
-                 temperature: Optional[float] = None,
+                 system_prompt: str | None = None,
+                 max_tokens: int | None = None,
+                 temperature: float | None = None,
                  use_cache: bool = True) -> LLMResponse:
         """
         Generate response from LLM.
@@ -150,7 +152,7 @@ class LLMManager:
     
     def generate_with_examples(self,
                              prompt: str,
-                             examples: List[Dict[str, str]],
+                             examples: list[dict[str, str]],
                              **kwargs) -> LLMResponse:
         """
         Generate response with few-shot examples.
@@ -189,7 +191,7 @@ class LLMManager:
         # Stream from provider
         self.primary_provider.stream_generate(prompt, callback, **kwargs)
     
-    def get_usage_stats(self) -> Dict[str, Any]:
+    def get_usage_stats(self) -> dict[str, Any]:
         """Get usage statistics."""
         return {
             'total_cost': self.cost_tracker.get_total_cost(),
@@ -232,7 +234,7 @@ class LLMManager:
                 retry_after=int(retry_after)
             )
     
-    def _generate_cache_key(self, prompt: str, system_prompt: Optional[str]) -> str:
+    def _generate_cache_key(self, prompt: str, system_prompt: str | None) -> str:
         """Generate cache key for prompt."""
         import hashlib
         
@@ -248,7 +250,7 @@ class LLMManager:
         key_string = "|".join(key_parts)
         return f"llm:{hashlib.sha256(key_string.encode()).hexdigest()}"
     
-    def _calculate_cost(self, usage: Dict[str, int], model: str) -> float:
+    def _calculate_cost(self, usage: dict[str, int], model: str) -> float:
         """Calculate cost based on token usage."""
         # Model pricing (per 1K tokens)
         pricing = {
@@ -271,7 +273,7 @@ class LLMManager:
         
         return input_cost + output_cost
     
-    def _format_with_examples(self, prompt: str, examples: List[Dict[str, str]]) -> str:
+    def _format_with_examples(self, prompt: str, examples: list[dict[str, str]]) -> str:
         """Format prompt with few-shot examples."""
         formatted_examples = []
         

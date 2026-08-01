@@ -1,48 +1,47 @@
-"""Secure query pipeline — deep module for NL→SQL→execute (major-release SoTA core)."""
+"""Secure query pipeline — deep module for NL→SQL→execute.
+
+Enforcement is delegated to the sqlglot AST guard (`cognidb.security.sql_guard`),
+which is the single source of parsing truth. The default generation mode is
+``intent`` (deterministic render with bound parameters); raw free-form LLM SQL is
+opt-in behind ``allow_dangerous_sql`` because it cannot be parameterized.
+"""
 
 from __future__ import annotations
 
 import json
 import logging
 import time
+from collections.abc import Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Protocol, Tuple
+from typing import Any, Protocol
 
 from ..intent import render_sql
 from ..schema.linking import link_schema
-from ..security.column_extractor import extract_columns_by_table
+from ..security import sql_guard
+from ..security.sql_guard import GuardError
 from ..security.statement_policy import StatementPolicy
-from ..security.table_extractor import extract_primary_operation, extract_tables
 
 logger = logging.getLogger(__name__)
+
+_Params = Sequence[Any] | None
 
 
 class _Driver(Protocol):
     def execute_native_query(
-        self, query: str, params: Optional[Dict[str, Any]] = None
-    ) -> List[Dict[str, Any]]: ...
+        self, query: str, params: _Params = None
+    ) -> list[dict[str, Any]]: ...
 
 
 class _Generator(Protocol):
     def generate_sql(
-        self, natural_language: str, schema: Dict[str, Any], examples: Any = None
+        self, natural_language: str, schema: dict[str, Any], examples: Any = None
     ) -> str: ...
 
-    def explain_query(self, sql: str, schema: Dict[str, Any]) -> str: ...
-
-
-class _IntentGenerator(Protocol):
-    def generate_intent(
-        self, natural_language: str, schema: Dict[str, Any], examples: Any = None
-    ) -> Any: ...
-
-    def explain_query(self, sql: str, schema: Dict[str, Any]) -> str: ...
+    def explain_query(self, sql: str, schema: dict[str, Any]) -> str: ...
 
 
 class _Validator(Protocol):
-    def validate_native_query(self, query: str) -> Tuple[bool, Optional[str]]: ...
-
     allowed_operations: Any
 
 
@@ -50,21 +49,38 @@ class _Sanitizer(Protocol):
     def sanitize_natural_language(self, text: str) -> str: ...
 
 
+def _acl_name(table: Any) -> str:
+    """Name used for access-control matching: schema-qualified key if the table
+    carries a schema/catalog, else the bare name (so `evil.users` != `users`)."""
+    return table.key if (table.db or table.catalog) else table.name
+
+
+def _infer_dialect(driver: Any) -> str | None:
+    name = type(driver).__name__.lower()
+    if "sqlite" in name:
+        return "sqlite"
+    if "postgres" in name or "pg" in name:
+        return "postgres"
+    if "mysql" in name or "maria" in name:
+        return "mysql"
+    return getattr(driver, "dialect", None)
+
+
 @dataclass
 class QueryResult:
     success: bool
     query: str
-    sql: Optional[str] = None
-    results: List[Dict[str, Any]] = field(default_factory=list)
+    sql: str | None = None
+    results: list[dict[str, Any]] = field(default_factory=list)
     row_count: int = 0
-    explanation: Optional[str] = None
-    error: Optional[str] = None
-    execution_ms: Optional[float] = None
-    schema_strategy: Optional[str] = None
+    explanation: str | None = None
+    error: str | None = None
+    execution_ms: float | None = None
+    schema_strategy: str | None = None
     repaired: bool = False
 
-    def to_dict(self) -> Dict[str, Any]:
-        d: Dict[str, Any] = {
+    def to_dict(self) -> dict[str, Any]:
+        d: dict[str, Any] = {
             "success": self.success,
             "query": self.query,
             "sql": self.sql,
@@ -82,15 +98,15 @@ class QueryResult:
 
 
 class SecureQueryPipeline:
-    """
-    Single deep interface for safe NL2SQL execution.
+    """Single deep interface for safe NL2SQL execution.
 
     1. Sanitize NL
     2. Link schema context
-    3. Generate SQL (free-form default) or intent→render_sql (opt-in)
-    4. Statement policy (mode, multi-stmt, allowlist ops)
-    5. Table/column allowlist access control
-    6. Execute; optional single repair on failure
+    3. Generate SQL: intent → deterministic parameterized render (default), or
+       free-form LLM SQL (opt-in via ``allow_dangerous_sql``)
+    4. Guard: AST statement gating (single SELECT / policy ops, no DDL/admin/CTE-write)
+    5. Fail-closed table/column access control
+    6. Execute with bound parameters; optional single repair on failure
     7. Audit
     """
 
@@ -101,24 +117,27 @@ class SecureQueryPipeline:
         generator: _Generator,
         validator: _Validator,
         sanitizer: _Sanitizer,
-        schema: Dict[str, Any],
-        access_controller: Optional[Any] = None,
+        schema: dict[str, Any],
+        dialect: str | None = None,
+        access_controller: Any | None = None,
         enable_access_control: bool = False,
         few_shot_examples: Any = None,
-        audit_path: Optional[str] = None,
+        audit_path: str | None = None,
         enable_audit: bool = True,
-        policy: Optional[StatementPolicy] = None,
+        policy: StatementPolicy | None = None,
         enable_schema_linking: bool = True,
         schema_top_k: int = 8,
         max_schema_tables: int = 40,
         repair_budget: int = 1,
-        generation_mode: str = "free_form",
+        generation_mode: str = "intent",
+        allow_dangerous_sql: bool = False,
     ):
         self.driver = driver
         self.generator = generator
         self.validator = validator
         self.sanitizer = sanitizer
         self.schema = schema
+        self.dialect = dialect or _infer_dialect(driver)
         self.access_controller = access_controller
         self.enable_access_control = enable_access_control
         self.few_shot_examples = few_shot_examples
@@ -129,27 +148,34 @@ class SecureQueryPipeline:
         self.schema_top_k = schema_top_k
         self.max_schema_tables = max_schema_tables
         self.repair_budget = max(0, repair_budget)
-        mode = (generation_mode or "free_form").strip().lower()
+        self.allow_dangerous_sql = allow_dangerous_sql
+
+        mode = (generation_mode or "intent").strip().lower()
         if mode not in ("free_form", "intent"):
             raise ValueError(
                 f"generation_mode must be 'free_form' or 'intent', got {generation_mode!r}"
             )
+        if mode == "free_form" and not allow_dangerous_sql:
+            raise ValueError(
+                "generation_mode='free_form' emits unparameterized LLM SQL and requires "
+                "allow_dangerous_sql=True. Prefer generation_mode='intent' (bound parameters)."
+            )
         self.generation_mode = mode
 
-        # Keep validator ops aligned with policy
+        # Keep the (compat) validator's operation list aligned with policy.
         self.validator.allowed_operations = list(self.policy.allowed_operations)
 
     def run(
         self,
         natural_language_query: str,
         *,
-        user_id: Optional[str] = None,
+        user_id: str | None = None,
         explain: bool = False,
-        sql_override: Optional[str] = None,
+        sql_override: str | None = None,
     ) -> QueryResult:
         started = time.perf_counter()
-        sql_query: Optional[str] = None
-        schema_strategy: Optional[str] = None
+        sql_query: str | None = None
+        schema_strategy: str | None = None
         repaired = False
         try:
             sanitized = self.sanitizer.sanitize_natural_language(natural_language_query)
@@ -161,29 +187,33 @@ class SecureQueryPipeline:
                 enable=self.enable_schema_linking,
             )
 
+            params: _Params = None
             if sql_override is not None:
+                if not self.allow_dangerous_sql:
+                    raise GuardError(
+                        "sql_override supplies raw, unparameterized SQL and requires "
+                        "allow_dangerous_sql=True"
+                    )
                 sql_query = sql_override.strip()
             elif self.generation_mode == "intent":
-                sql_query = self._generate_via_intent(sanitized, schema_ctx)
+                sql_query, params = self._generate_via_intent(sanitized, schema_ctx)
             else:
                 sql_query = self.generator.generate_sql(
-                    sanitized,
-                    schema_ctx,
-                    examples=self.few_shot_examples,
+                    sanitized, schema_ctx, examples=self.few_shot_examples
                 )
 
-            sql_query = self._enforce(sql_query, user_id)
+            sql_query, params = self._enforce(sql_query, params, user_id)
 
             try:
-                results = self.driver.execute_native_query(sql_query)
+                results = self.driver.execute_native_query(sql_query, params)
             except Exception as exec_err:
                 if self.repair_budget < 1 or sql_override is not None:
                     raise
                 repaired_sql = self._try_repair(sql_query, str(exec_err), schema_ctx)
                 if repaired_sql is None:
                     raise
-                sql_query = self._enforce(repaired_sql, user_id)
-                results = self.driver.execute_native_query(sql_query)
+                sql_query, params = self._enforce(repaired_sql, None, user_id)
+                results = self.driver.execute_native_query(sql_query, params)
                 repaired = True
 
             elapsed = (time.perf_counter() - started) * 1000
@@ -218,56 +248,62 @@ class SecureQueryPipeline:
                 repaired=repaired,
             )
 
-    def _generate_via_intent(self, sanitized: str, schema_ctx: Dict[str, Any]) -> str:
-        """NL → QueryIntent (port) → deterministic render_sql."""
+    def _generate_via_intent(
+        self, sanitized: str, schema_ctx: dict[str, Any]
+    ) -> tuple[str, _Params]:
+        """NL → QueryIntent (port) → deterministic parameterized render."""
         gen_intent = getattr(self.generator, "generate_intent", None)
         if not callable(gen_intent):
             raise ValueError(
                 "generation_mode='intent' requires a generator with generate_intent()"
             )
-        intent = gen_intent(
-            sanitized,
-            schema_ctx,
-            examples=self.few_shot_examples,
-        )
-        return render_sql(intent)
-
-    def _enforce(self, sql: str, user_id: Optional[str]) -> str:
-        ok_ms, err_ms = self.policy.check_multi_statement(sql)
-        if not ok_ms:
-            raise ValueError(err_ms)
-
-        op = extract_primary_operation(sql)
-        if op in ("DROP", "CREATE", "ALTER", "TRUNCATE", "GRANT", "REVOKE"):
-            raise ValueError(f"Operation {op} is not allowed by statement policy (DDL/admin forbidden)")
-        if op not in self.policy.allowed_operations and op != "UNKNOWN":
+        intent = gen_intent(sanitized, schema_ctx, examples=self.few_shot_examples)
+        dialect = self.dialect
+        if dialect is None:
             raise ValueError(
-                f"Operation {op} not allowed in {self.policy.mode.value} mode"
+                "generation_mode='intent' requires a dialect (sqlite/postgres/mysql); "
+                "pass dialect=... or use a driver whose dialect can be inferred."
             )
+        rendered = render_sql(intent, dialect=dialect)
+        return rendered.sql, tuple(rendered.params)
 
-        ok, err = self.validator.validate_native_query(sql)
-        if not ok:
-            raise ValueError(f"Security validation failed: {err}")
+    def _enforce(
+        self, sql: str, params: _Params, user_id: str | None
+    ) -> tuple[str, _Params]:
+        """AST security gate + fail-closed access control. Raises on any violation."""
+        result = sql_guard.analyze(
+            sql,
+            dialect=self.dialect,
+            allowed_operations=frozenset(self.policy.allowed_operations),
+            allow_multi_statement=self.policy.allow_multi_statement,
+        )
 
-        if self.enable_access_control and self.access_controller and user_id:
-            tables = extract_tables(sql)
-            if tables:
-                self.access_controller.check_table_access(user_id, tables)
-                columns_by_table = extract_columns_by_table(sql, tables)
-                for table, columns in columns_by_table.items():
+        if self.enable_access_control:
+            if self.access_controller is None or not user_id:
+                raise GuardError(
+                    "Access control is enabled but no access controller or user "
+                    "identity was provided; denying (fail closed)"
+                )
+            if result.tables:
+                # Use the schema-qualified key so `evil.users` is not authorized
+                # as the bare `users`; only a truly unqualified table checks by name.
+                self.access_controller.check_table_access(
+                    user_id, [_acl_name(t) for t in result.tables]
+                )
+                for tref in result.tables:
+                    columns = result.columns_by_table.get(tref.key)
                     if columns:
                         self.access_controller.check_column_access(
-                            user_id, table, columns
+                            user_id, _acl_name(tref), list(columns)
                         )
 
-        return sql
+        return sql, params
 
     def _try_repair(
-        self, sql: str, error: str, schema_ctx: Dict[str, Any]
-    ) -> Optional[str]:
+        self, sql: str, error: str, schema_ctx: dict[str, Any]
+    ) -> str | None:
         repair_fn = getattr(self.generator, "repair_sql_with_error", None)
         if not callable(repair_fn):
-            # Fallback: re-generate with error hint in NL if generator has no repair
             try:
                 return self.generator.generate_sql(
                     f"Fix this SQL. Error: {error}\nSQL: {sql}",
@@ -283,11 +319,11 @@ class SecureQueryPipeline:
 
     def _audit(
         self,
-        user_id: Optional[str],
+        user_id: str | None,
         nl: str,
-        sql: Optional[str],
+        sql: str | None,
         success: bool,
-        error: Optional[str],
+        error: str | None,
         repaired: bool,
     ) -> None:
         if not self.enable_audit:

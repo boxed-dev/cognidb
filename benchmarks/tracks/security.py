@@ -3,25 +3,23 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import Any, Dict, List, Optional
-
-from cognidb.security import StatementMode, StatementPolicy
 
 from benchmarks.pipeline_factory import load_commerce_driver, make_pipeline
 from benchmarks.runner import load_jsonl
 from benchmarks.types import CaseResult, TrackReport, score_of
+from cognidb.security import StatementMode, StatementPolicy
 
 
 def run_security_track(
     path: Path,
     *,
-    limit: Optional[int] = None,
+    limit: int | None = None,
     seed: int = 42,
 ) -> TrackReport:
     del seed
     cases = load_jsonl(path, limit=limit)
     driver = load_commerce_driver()
-    results: List[CaseResult] = []
+    results: list[CaseResult] = []
     false_accepts = 0
 
     try:

@@ -1,9 +1,12 @@
 """Query generator using LLM with advanced features."""
 
+from __future__ import annotations
+
 import re
-from typing import Dict, Any, List, Optional, Tuple
-from ..core.query_intent import QueryIntent, QueryType, Column, Condition, ComparisonOperator
+from typing import Any
+
 from ..core.exceptions import TranslationError
+from ..core.query_intent import Column, QueryIntent, QueryType
 from ..security.sanitizer import InputSanitizer
 from .llm_manager import LLMManager
 from .prompt_builder import PromptBuilder
@@ -38,9 +41,9 @@ class QueryGenerator:
     
     def generate_sql(self,
                     natural_language_query: str,
-                    schema: Dict[str, Dict[str, str]],
-                    examples: Optional[List[Dict[str, str]]] = None,
-                    context: Optional[Dict[str, Any]] = None) -> str:
+                    schema: dict[str, dict[str, str]],
+                    examples: list[dict[str, str]] | None = None,
+                    context: dict[str, Any] | None = None) -> str:
         """
         Generate SQL from natural language query.
         
@@ -79,11 +82,11 @@ class QueryGenerator:
             return sql_query
             
         except Exception as e:
-            raise TranslationError(f"Failed to generate SQL: {str(e)}")
+            raise TranslationError(f"Failed to generate SQL: {str(e)}") from e
     
     def parse_to_intent(self,
                        natural_language_query: str,
-                       schema: Dict[str, Dict[str, str]]) -> QueryIntent:
+                       schema: dict[str, dict[str, str]]) -> QueryIntent:
         """
         Parse natural language to QueryIntent.
         
@@ -102,7 +105,7 @@ class QueryGenerator:
     
     def explain_query(self,
                      sql_query: str,
-                     schema: Dict[str, Dict[str, str]]) -> str:
+                     schema: dict[str, dict[str, str]]) -> str:
         """
         Generate natural language explanation of SQL query.
         
@@ -123,8 +126,8 @@ class QueryGenerator:
     
     def optimize_query(self,
                       sql_query: str,
-                      schema: Dict[str, Dict[str, str]],
-                      performance_stats: Optional[Dict[str, Any]] = None) -> Tuple[str, str]:
+                      schema: dict[str, dict[str, str]],
+                      performance_stats: dict[str, Any] | None = None) -> tuple[str, str]:
         """
         Generate optimized version of SQL query.
         
@@ -182,8 +185,8 @@ class QueryGenerator:
     
     def suggest_queries(self,
                        partial_query: str,
-                       schema: Dict[str, Dict[str, str]],
-                       num_suggestions: int = 3) -> List[str]:
+                       schema: dict[str, dict[str, str]],
+                       num_suggestions: int = 3) -> list[str]:
         """
         Generate query suggestions based on partial input.
         
@@ -195,7 +198,10 @@ class QueryGenerator:
         Returns:
             List of suggested queries
         """
-        prompt = f"""Based on the database schema and partial query, suggest {num_suggestions} complete queries.
+        prompt = (
+            f"Based on the database schema and partial query, "
+            f"suggest {num_suggestions} complete queries."
+            f"""
 
 Database Schema:
 {self.prompt_builder._build_schema_description(schema)}
@@ -206,7 +212,8 @@ Generate {num_suggestions} relevant query suggestions that complete or expand on
 Format each suggestion on a new line starting with "- ".
 
 Suggestions:"""
-        
+        )
+
         try:
             response = self.llm_manager.generate(prompt, temperature=0.7)
             
@@ -261,7 +268,9 @@ Suggestions:"""
         
         return any(sql_upper.strip().startswith(start) for start in valid_starts)
     
-    def _parse_sql_to_intent(self, sql_query: str, schema: Dict[str, Dict[str, str]]) -> QueryIntent:
+    def _parse_sql_to_intent(
+        self, sql_query: str, schema: dict[str, dict[str, str]]
+    ) -> QueryIntent:
         """
         Parse SQL query to QueryIntent (simplified version).
         
