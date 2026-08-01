@@ -56,13 +56,15 @@ all = [
   "azure-identity>=1.14.0",
   "azure-keyvault-secrets>=4.7.0",
 ]
-# dev installs both connectors so the driver test suite runs against them.
+# dev installs both connectors (driver tests) and sqlparse (benchmark harness's
+# normalize_sql/tokenizer — dev tooling only; nothing shipped imports it).
 dev = [
   "pytest>=7.4.0",
   "pytest-cov>=4.1.0",
   "pytest-mock>=3.11.0",
   "psycopg2-binary>=2.9.9",
   "mysql-connector-python>=8.0.33",
+  "sqlparse>=0.4.4",
 ]
 
 # PEP 735 dependency groups for the CI tool gates (installable with

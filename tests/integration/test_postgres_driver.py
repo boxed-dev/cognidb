@@ -35,8 +35,11 @@ def _config_from_url(url: str) -> Dict[str, Any]:
         "database": (parsed.path or "/").lstrip("/") or "postgres",
         "username": unquote(parsed.username) if parsed.username else "postgres",
         "password": unquote(parsed.password) if parsed.password else "",
-        # Local CI / docker Postgres typically has no TLS.
-        "ssl_enabled": False,
+        # The PG driver fails closed on TLS (default sslmode=verify-full). A local
+        # CI / docker Postgres is plaintext localhost, so opt out explicitly via
+        # the key the driver actually reads (`sslmode`), not the MySQL-style
+        # `ssl_enabled`. Production keeps the verify-full default.
+        "sslmode": "disable",
         "max_result_size": 100,
         "pool_size": 2,
         "query_timeout": 30,
